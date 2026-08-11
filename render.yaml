@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: roayti-web
+    env: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm run start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: roayti-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+
+databases:
+  - name: roayti-db
+    databaseName: roayti_com
+    user: roayti_user
+    plan: free
