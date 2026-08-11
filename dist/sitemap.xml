@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- الصفحة الرئيسية -->
+  <url>
+    <loc>https://roayti.com/</loc>
+    <lastmod>2026-08-08</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- قسم اكتشف الروايات -->
+  <url>
+    <loc>https://roayti.com/explore</loc>
+    <lastmod>2026-08-08</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- قسم الأكثر قراءة -->
+  <url>
+    <loc>https://roayti.com/most-read</loc>
+    <lastmod>2026-08-08</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- قسم المكتبة -->
+  <url>
+    <loc>https://roayti.com/library</loc>
+    <lastmod>2026-08-08</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- قسم لوحة الكتابة -->
+  <url>
+    <loc>https://roayti.com/dashboard</loc>
+    <lastmod>2026-08-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- قسم الكاتب الذكي AI -->
+  <url>
+    <loc>https://roayti.com/ai-writer</loc>
+    <lastmod>2026-08-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- سياسة الخصوصية -->
+  <url>
+    <loc>https://roayti.com/privacy</loc>
+    <lastmod>2026-08-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+  <!-- شروط الاستخدام -->
+  <url>
+    <loc>https://roayti.com/terms</loc>
+    <lastmod>2026-08-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+</urlset>

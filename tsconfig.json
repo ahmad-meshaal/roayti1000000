@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@assets/*": ["attached_assets/*"],
+      "@workspace/db": ["lib/lib/db/src/index.ts"],
+      "@workspace/db/schema": ["lib/lib/db/src/schema/index.ts"],
+      "@workspace/db/*": ["lib/lib/db/src/*"]
+    }
+  },
+  "include": ["src/**/*", "server.ts", "api-server/**/*", "lib/lib/db/src/**/*"]
+}

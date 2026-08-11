@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- الصفحة الرئيسية -->
+  <url>
+    <loc>https://gemini-content-hub--roayti0.replit.app/</loc>
+    <lastmod>2026-07-18</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- قسم اكتشف الروايات -->
+  <url>
+    <loc>https://gemini-content-hub--roayti0.replit.app/explore</loc>
+    <lastmod>2026-07-18</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- قسم الأكثر قراءة -->
+  <url>
+    <loc>https://gemini-content-hub--roayti0.replit.app/most-read</loc>
+    <lastmod>2026-07-18</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- قسم المكتبة -->
+  <url>
+    <loc>https://gemini-content-hub--roayti0.replit.app/library</loc>
+    <lastmod>2026-07-18</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- قسم لوحة الكتابة -->
+  <url>
+    <loc>https://gemini-content-hub--roayti0.replit.app/dashboard</loc>
+    <lastmod>2026-07-18</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- قسم الكاتب الذكي AI -->
+  <url>
+    <loc>https://gemini-content-hub--roayti0.replit.app/ai-writer</loc>
+    <lastmod>2026-07-18</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- سياسة الخصوصية -->
+  <url>
+    <loc>https://gemini-content-hub--roayti0.replit.app/privacy</loc>
+    <lastmod>2026-07-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+  <!-- شروط الاستخدام -->
+  <url>
+    <loc>https://gemini-content-hub--roayti0.replit.app/terms</loc>
+    <lastmod>2026-07-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+</urlset>

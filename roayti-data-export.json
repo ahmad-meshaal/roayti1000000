@@ -1,0 +1,384 @@
+{
+  "users": [
+    {
+      "uid": "user_master_01",
+      "display_name": "أحمد محمود",
+      "username": "ahmad_writer",
+      "email": "ahmad@example.com",
+      "photo_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+      "banner_url": "",
+      "bio": "كاتب ومؤلف روايات الفانتازيا والدراما التاريخية العربية، مهتم بسرد الملاحم والقصص الأسطورية.",
+      "role": "admin",
+      "font_family": "",
+      "terabox_link": "",
+      "show_cloud_assets_publicly": false,
+      "onboarding_completed": false,
+      "links": [],
+      "manual_badge": "verified",
+      "created_at": "2026-08-08T15:28:11.311Z",
+      "updated_at": "2026-08-08T15:28:11.311Z"
+    },
+    {
+      "uid": "user_sara_02",
+      "display_name": "سارة النجار",
+      "username": "sara_author",
+      "email": "sara@example.com",
+      "photo_url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
+      "banner_url": "",
+      "bio": "مؤلفة قصص الخيال والغموض، حائزة على عدة جوائز أدبية ومحبة للقراءة والتحليل.",
+      "role": "verified_author",
+      "font_family": "",
+      "terabox_link": "",
+      "show_cloud_assets_publicly": false,
+      "onboarding_completed": false,
+      "links": [],
+      "manual_badge": "gold_writer",
+      "created_at": "2026-08-08T15:28:11.311Z",
+      "updated_at": "2026-08-08T15:28:11.311Z"
+    },
+    {
+      "uid": "user_omar_03",
+      "display_name": "عمر الفاروق",
+      "username": "omar_reader",
+      "email": "omar@example.com",
+      "photo_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
+      "banner_url": "",
+      "bio": "قارئ شغوف ومراجع للروايات العربية في منتدى الروايات.",
+      "role": "user",
+      "font_family": "",
+      "terabox_link": "",
+      "show_cloud_assets_publicly": false,
+      "onboarding_completed": false,
+      "links": [],
+      "manual_badge": "reader_pro",
+      "created_at": "2026-08-08T15:28:11.311Z",
+      "updated_at": "2026-08-08T15:28:11.311Z"
+    },
+    {
+      "uid": "user_layla_04",
+      "display_name": "ليلى العمري",
+      "username": "layla_novels",
+      "email": "layla@example.com",
+      "photo_url": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150",
+      "banner_url": "",
+      "bio": "شغوفة بسرد الحكايات والروايات الاجتماعية والأسطورية.",
+      "role": "author",
+      "font_family": "",
+      "terabox_link": "",
+      "show_cloud_assets_publicly": false,
+      "onboarding_completed": false,
+      "links": [],
+      "manual_badge": "silver_writer",
+      "created_at": "2026-08-08T15:28:11.311Z",
+      "updated_at": "2026-08-08T15:28:11.311Z"
+    }
+  ],
+  "novels": [
+    {
+      "id": "n_001",
+      "author_uid": "user_master_01",
+      "author_name": "أحمد محمود",
+      "author_photo": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+      "title": "ظل العرش المفقود",
+      "genre": "fantasy",
+      "summary": "ملحمة أدبية تحكي عن صراع الممالك القديمة والبحث عن التاج المفقود في أرض الأسرار والغموض، حيث يتصدى الفارس أدهم للقوى المظلمة لحماية عقيدته وشعبه.",
+      "cover_image": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800",
+      "status": "published",
+      "likes_count": 142,
+      "views_count": 2890,
+      "shares_count": 35,
+      "language": "ar",
+      "violence_level": "moderate",
+      "moral_tone": "heroic",
+      "font_family": "var(--font-serif)",
+      "font_size": "1.125rem",
+      "text_align": "right",
+      "line_height": "1.75",
+      "previous_part_id": null,
+      "terabox_link": "",
+      "created_at": "2026-08-08T15:28:11.319Z",
+      "updated_at": "2026-08-08T15:28:11.319Z"
+    },
+    {
+      "id": "n_003",
+      "author_uid": "user_layla_04",
+      "author_name": "ليلى العمري",
+      "author_photo": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150",
+      "title": "صدى الكلمات والإلهام",
+      "genre": "drama",
+      "summary": "قصة إنسانية عميقة تتناول دراما العلاقات، التضحية، والبحث عن الذات عبر مختلف مراحل الحياة والتحديات الروحية.",
+      "cover_image": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?q=80&w=800",
+      "status": "published",
+      "likes_count": 215,
+      "views_count": 4120,
+      "shares_count": 68,
+      "language": "ar",
+      "violence_level": "none",
+      "moral_tone": "inspirational",
+      "font_family": "var(--font-serif)",
+      "font_size": "1.125rem",
+      "text_align": "right",
+      "line_height": "1.75",
+      "previous_part_id": null,
+      "terabox_link": "",
+      "created_at": "2026-08-08T15:28:11.319Z",
+      "updated_at": "2026-08-08T15:28:11.319Z"
+    },
+    {
+      "id": "n_004",
+      "author_uid": "user_master_01",
+      "author_name": "أحمد محمود",
+      "author_photo": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+      "title": "أرباب الأفق الأخبر",
+      "genre": "sci-fi",
+      "summary": "رحلة مستقبليّة عبر أبعاد الكون المظلم للبحث عن ملاذ جديد للبشرية بعد تحول مناخ الأرض واكتشاف مجرة غير مطروقة.",
+      "cover_image": "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?q=80&w=800",
+      "status": "published",
+      "likes_count": 76,
+      "views_count": 1100,
+      "shares_count": 12,
+      "language": "ar",
+      "violence_level": "moderate",
+      "moral_tone": "sci-fi",
+      "font_family": "var(--font-serif)",
+      "font_size": "1.125rem",
+      "text_align": "right",
+      "line_height": "1.75",
+      "previous_part_id": null,
+      "terabox_link": "",
+      "created_at": "2026-08-08T15:28:11.319Z",
+      "updated_at": "2026-08-08T15:28:11.319Z"
+    },
+    {
+      "id": "n_002",
+      "author_uid": "user_sara_02",
+      "author_name": "سارة النجار",
+      "author_photo": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
+      "title": "سر السراديب المعتمة",
+      "genre": "mystery",
+      "summary": "تحقيق غامض في مدينة أندلسية قديمة يكشف عن شبكة من الأسرار والرموز التاريخية المخبأة منذ قرون خلف الجدران العتيقة.",
+      "cover_image": "https://images.unsplash.com/photo-1532012197267-da84d127e765?q=80&w=800",
+      "status": "published",
+      "likes_count": 98,
+      "views_count": 1751,
+      "shares_count": 21,
+      "language": "ar",
+      "violence_level": "none",
+      "moral_tone": "suspense",
+      "font_family": "var(--font-serif)",
+      "font_size": "1.125rem",
+      "text_align": "right",
+      "line_height": "1.75",
+      "previous_part_id": null,
+      "terabox_link": "",
+      "created_at": "2026-08-08T15:28:11.319Z",
+      "updated_at": "2026-08-08T15:28:11.319Z"
+    }
+  ],
+  "chapters": [
+    {
+      "id": "c_001",
+      "novel_id": "n_001",
+      "title": "الفصل الأول: البداية في أطلال الرماد",
+      "content": "كانت الرياح تعصف بشدة فوق أسوار قلعة الضباب العتيقة. جلس أدهم فوق الصخرة العالية يرقب أفق المدينة الممتد تحت ضوء القمر الفضي. لم يكن القتال مجرد خيار بالنسبة له، بل كان واجباً محتوماً لقومه الذين انتظروا العودة لسنوات طويلة. وقف وبيده سيفه المحفور عليه الرموز القديمة، جاهزاً لمواجهة أخطار الغد.",
+      "description": "بداية رحلة أدهم وحكايته في القلعة العتيقة.",
+      "order": 1,
+      "created_at": "2026-08-08T15:28:11.322Z",
+      "updated_at": "2026-08-08T15:28:11.322Z"
+    },
+    {
+      "id": "c_002",
+      "novel_id": "n_001",
+      "title": "الفصل الثاني: همس الرياح الساطعة",
+      "content": "دخل أدهم إلى الممر المظلم أسفل القلعة، حيث تفوح رائحة القدم والأسرار. سرعان ما سمع صوتاً خافتاً يناديه باسمه القديم. التفت يميناً فرأى نقشاً مضيئاً على الجدار يرمز للعرش المفقود...",
+      "description": "استكشاف السراديب واكتشاف الخريطة المخفية.",
+      "order": 2,
+      "created_at": "2026-08-08T15:28:11.322Z",
+      "updated_at": "2026-08-08T15:28:11.322Z"
+    },
+    {
+      "id": "c_003",
+      "novel_id": "n_001",
+      "title": "الفصل الثالث: الفارس والأحجار السبعة",
+      "content": "بدأت الرحلة الحقيقية نحو وادي الأسرار. جمع أدهم رفاقه السبعة في الفجر للبدء في البحث عن الأحجار السحرية.",
+      "description": "تجميع الرفاق وتحديد الخطة الأولى.",
+      "order": 3,
+      "created_at": "2026-08-08T15:28:11.322Z",
+      "updated_at": "2026-08-08T15:28:11.322Z"
+    },
+    {
+      "id": "c_004",
+      "novel_id": "n_002",
+      "title": "الفصل الأول: جريمة في القصر الأثري",
+      "content": "في ليلة ممطرة، تسلل المفتش فريد إلى مكتبة القصر الأندلسي بعد تلقيه بلاغاً غامضاً عن اختفاء المخطوطة النادرة. وجد الباب مفتوحاً والأوراق مبعثرة على الأرض بشكل يثير الريبة.",
+      "description": "بداية التحقيق الغامض واكتشاف المخطوطة المفقودة.",
+      "order": 1,
+      "created_at": "2026-08-08T15:28:11.322Z",
+      "updated_at": "2026-08-08T15:28:11.322Z"
+    },
+    {
+      "id": "c_005",
+      "novel_id": "n_002",
+      "title": "الفصل الثاني: الرسالة المجهولة",
+      "content": "عثر فريد بين طيات الكتب على مغلف أسود مغلق بالشمع الأحمر، مكتوب عليه عبارة واحدة باللغة القديمة.",
+      "description": "تحليل الرسالة وتتبع الخيوط الأولى.",
+      "order": 2,
+      "created_at": "2026-08-08T15:28:11.322Z",
+      "updated_at": "2026-08-08T15:28:11.322Z"
+    },
+    {
+      "id": "c_006",
+      "novel_id": "n_003",
+      "title": "الفصل الأول: رحيل ناعم",
+      "content": "في زاوية ذلك المقهى الهادئ، جلست مريم تسجل خاطراتها في مفكرتها الصغيرة. لم تكن تعلم أن هذا اليوم سيغير مجرى حياتها بالكامل.",
+      "description": "لقاء مريم الأول وبداية التغير الكبير.",
+      "order": 1,
+      "created_at": "2026-08-08T15:28:11.322Z",
+      "updated_at": "2026-08-08T15:28:11.322Z"
+    },
+    {
+      "id": "c_007",
+      "novel_id": "n_004",
+      "title": "الفصل الأول: الإشارة الأولى من المجرة",
+      "content": "تلقت المحطة الفضائية الرئيسية إشارة تردد غريبة قادمة من النظام الشمسي المجاور. قرر القائد طارق تجهيز المركبة للرحلة الاستكشافية.",
+      "description": "انطلاق المركبة الفضائية الاستكشافية.",
+      "order": 1,
+      "created_at": "2026-08-08T15:28:11.322Z",
+      "updated_at": "2026-08-08T15:28:11.322Z"
+    }
+  ],
+  "characters": [
+    {
+      "id": "char_01",
+      "novel_id": "n_001",
+      "name": "الفارس أدهم",
+      "role": "main",
+      "traits": "شجاع، نبيـل، حكيم",
+      "description": "البطل الرئيسي، فارس مقدام يسعى لإعادة العرش والحفاظ على سلامة قومه.",
+      "created_at": "2026-08-08T15:28:11.324Z"
+    },
+    {
+      "id": "char_02",
+      "novel_id": "n_001",
+      "name": "الحكيم إدريس",
+      "role": "supporting",
+      "traits": "غريب الأطوار، خبير بالرموز",
+      "description": "مرشد أدهم في رحلته ومكتشف الخرائط القديمة.",
+      "created_at": "2026-08-08T15:28:11.324Z"
+    },
+    {
+      "id": "char_03",
+      "novel_id": "n_002",
+      "name": "المُحقق فريد",
+      "role": "main",
+      "traits": "ذكي، دقيق الملاحظة",
+      "description": "مفتش خبير في القضايا التاريخية والألغاز المعقدة.",
+      "created_at": "2026-08-08T15:28:11.324Z"
+    }
+  ],
+  "world_notes": [
+    {
+      "id": "wn_01",
+      "novel_id": "n_001",
+      "title": "خريطة الممالك السبع",
+      "category": "geography",
+      "content": "تتكون الأرض القديمة من سبع ممالك تحيط بالبحيرة الفضية، وتحدها القلاع المنيعة من الشمال.",
+      "created_at": "2026-08-08T15:28:11.326Z"
+    },
+    {
+      "id": "wn_02",
+      "novel_id": "n_001",
+      "title": "نظام السحر والأحجار",
+      "category": "magic",
+      "content": "يعتمد السحر على سبعة أحجار كريمة متوازنة يمثل كل حجر منها عنصراً من عناصر الطبيعة.",
+      "created_at": "2026-08-08T15:28:11.326Z"
+    }
+  ],
+  "follows": [
+    {
+      "id": "f_01",
+      "follower_uid": "user_omar_03",
+      "followed_uid": "user_master_01",
+      "created_at": "2026-08-08T15:28:11.375Z"
+    },
+    {
+      "id": "f_02",
+      "follower_uid": "user_omar_03",
+      "followed_uid": "user_sara_02",
+      "created_at": "2026-08-08T15:28:11.375Z"
+    },
+    {
+      "id": "f_03",
+      "follower_uid": "user_layla_04",
+      "followed_uid": "user_master_01",
+      "created_at": "2026-08-08T15:28:11.375Z"
+    }
+  ],
+  "library": [
+    {
+      "id": "lib_01",
+      "uid": "user_omar_03",
+      "novel_id": "n_001",
+      "added_at": "2026-08-08T15:28:11.379Z"
+    },
+    {
+      "id": "lib_02",
+      "uid": "user_omar_03",
+      "novel_id": "n_002",
+      "added_at": "2026-08-08T15:28:11.379Z"
+    }
+  ],
+  "reading_progress": [
+    {
+      "id": "prog_01",
+      "uid": "user_omar_03",
+      "novel_id": "n_001",
+      "last_chapter_id": "c_002",
+      "last_chapter_order": 2,
+      "updated_at": "2026-08-08T15:28:11.381Z"
+    }
+  ],
+  "comments": [
+    {
+      "id": "com_01",
+      "novel_id": "n_001",
+      "chapter_id": "c_001",
+      "author_uid": "user_omar_03",
+      "author_name": "عمر الفاروق",
+      "author_photo": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
+      "text": "بداية ملحمية مشوقة جداً! أسلوب السرد رائع والأحداث متسارعة.",
+      "created_at": "2026-08-08T15:28:11.330Z"
+    },
+    {
+      "id": "com_02",
+      "novel_id": "n_001",
+      "chapter_id": "c_001",
+      "author_uid": "user_sara_02",
+      "author_name": "sara_author",
+      "author_photo": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
+      "text": "أبدعت يا أحمد، بانتظار الفصل القادم بشغف كبير!",
+      "created_at": "2026-08-08T15:28:11.330Z"
+    }
+  ],
+  "likes": [],
+  "notifications": [
+    {
+      "id": "notif_01",
+      "uid": "user_master_01",
+      "type": "comment",
+      "title": "تعليق جديد",
+      "body": "قام عمر الفاروق بالتعليق على روايتك \"ظل العرش المفقود\"",
+      "read": false,
+      "created_at": "2026-08-08T15:28:11.384Z"
+    },
+    {
+      "id": "notif_02",
+      "uid": "user_master_01",
+      "type": "follow",
+      "title": "متابع جديد",
+      "body": "بدأت سارة النجار بمتابعة حسابك",
+      "read": false,
+      "created_at": "2026-08-08T15:28:11.384Z"
+    }
+  ]
+}

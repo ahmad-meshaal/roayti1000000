@@ -1,0 +1,6 @@
+{
+  "name": "Roayti",
+  "description": "منصة كُتّاب وقرّاء الروايات العربية والقصص التفاعلية بمساعدة الذكاء الاصطناعي",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

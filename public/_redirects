@@ -1,0 +1,5 @@
+# Proxy API requests to your backend (e.g. Vercel) - Replace with your actual backend URL
+# /api/* https://your-backend-url.vercel.app/api/:splat 200
+
+# SPA routing fallback for React router
+/* /index.html 200
