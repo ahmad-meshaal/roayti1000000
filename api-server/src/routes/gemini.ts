@@ -4,10 +4,10 @@ import { GoogleGenAI } from "@google/genai";
 const router = Router();
 
 function getAI() {
-  const directKey =
-    process.env.GEMINI_API_KEY ||
-    process.env.VITE_GEMINI_API_KEY ||
-    "XIFc/OSVPMosQcuqglBu1FLyshtSWWiCIswCuwM2ZQop1XrgWXWZHMptBTUtWvMJOFsB8kD6GOgswScrCjMPbw==";
+  const envKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  const directKey = (envKey && envKey.startsWith("AIzaSy")) 
+    ? envKey 
+    : "AIzaSyDPHpkz-G0wKRSePRSYz2FMc_HR8iuTgFw";
   if (directKey) {
     return new GoogleGenAI({ apiKey: directKey });
   }

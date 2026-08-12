@@ -13,9 +13,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: GEMINI_API_KEY
-        value: XIFc/OSVPMosQcuqglBu1FLyshtSWWiCIswCuwM2ZQop1XrgWXWZHMptBTUtWvMJOFsB8kD6GOgswScrCjMPbw==
+        value: AIzaSyDPHpkz-G0wKRSePRSYz2FMc_HR8iuTgFw
       - key: VITE_GEMINI_API_KEY
-        value: XIFc/OSVPMosQcuqglBu1FLyshtSWWiCIswCuwM2ZQop1XrgWXWZHMptBTUtWvMJOFsB8kD6GOgswScrCjMPbw==
+        value: AIzaSyDPHpkz-G0wKRSePRSYz2FMc_HR8iuTgFw
 
 databases:
   - name: roayti-db
