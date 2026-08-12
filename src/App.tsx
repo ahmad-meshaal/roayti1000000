@@ -5204,7 +5204,7 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin }:
               rel="noreferrer"
               className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1"
             >
-              <ExternalLink size={14} /> {t('get_free_key_link', 'اضغط هنا للحصول على مفتاحك المجاني فوراً من Google AI Studio')}
+              <ExternalLinkIcon size={14} /> {t('get_free_key_link', 'اضغط هنا للحصول على مفتاحك المجاني فوراً من Google AI Studio')}
             </a>
             {localStorage.getItem('custom_gemini_api_key') ? (
               <span className="text-[11px] font-bold text-green-700 bg-green-100 px-3 py-1 rounded-full">
