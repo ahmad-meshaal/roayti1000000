@@ -3,26 +3,24 @@ import { GoogleGenAI } from "@google/genai";
 
 const router = Router();
 
-function getAI() {
-  const envKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-  const directKey = (envKey && envKey.startsWith("AIzaSy")) 
-    ? envKey 
-    : "AIzaSyDPHpkz-G0wKRSePRSYz2FMc_HR8iuTgFw";
-  if (directKey) {
-    return new GoogleGenAI({ apiKey: directKey });
+async function generateFreeAI(promptText: string) {
+  const pollResponse = await fetch("https://text.pollinations.ai/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messages: [{ role: "user", content: promptText }],
+      model: "openai",
+      seed: Math.floor(Math.random() * 1000000),
+    }),
+  });
+
+  if (pollResponse.ok) {
+    const text = await pollResponse.text();
+    if (text && text.trim().length > 0) {
+      return text.trim();
+    }
   }
-
-  const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
-  const replitApiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
-
-  if (baseUrl && replitApiKey) {
-    return new GoogleGenAI({
-      apiKey: replitApiKey,
-      httpOptions: { apiVersion: "", baseUrl },
-    });
-  }
-
-  throw new Error("No Gemini API key configured. Please set GEMINI_API_KEY in your .env file.");
+  throw new Error("Free AI provider did not return content");
 }
 
 router.post("/gemini/generate", async (req, res) => {
@@ -41,50 +39,39 @@ router.post("/gemini/generate", async (req, res) => {
     .map(c => (c.parts || []).map(p => p.text).join("\n"))
     .join("\n\n");
 
-  try {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-      model,
-      contents,
-      config: {
-        safetySettings: [
-          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
-        ] as any,
-        ...config,
-      },
-    });
-    return res.json({ text: response.text, candidates: response.candidates });
-  } catch (err: any) {
-    req.log.warn({ errMessage: err?.message }, "Gemini API error, activating free AI provider fallback");
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
+  if (geminiKey && geminiKey.trim().length > 20 && !geminiKey.includes("AIzaSyDPHpkz")) {
     try {
-      const pollResponse = await fetch("https://text.pollinations.ai/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: promptText }],
-          model: "openai",
-          seed: Math.floor(Math.random() * 1000000),
-        }),
+      const ai = new GoogleGenAI({ apiKey: geminiKey });
+      const response = await ai.models.generateContent({
+        model,
+        contents,
+        config: {
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+          ] as any,
+          ...config,
+        },
       });
-
-      if (pollResponse.ok) {
-        const text = await pollResponse.text();
-        if (text && text.trim().length > 0) {
-          return res.json({
-            text: text.trim(),
-            candidates: [{ content: { parts: [{ text: text.trim() }] } }],
-          });
-        }
-      }
-    } catch (pollErr: any) {
-      req.log.error({ pollErr: pollErr?.message }, "Pollinations AI fallback error");
+      return res.json({ text: response.text, candidates: response.candidates });
+    } catch (err: any) {
+      req.log.warn({ errMessage: err?.message }, "Gemini API failed, switching to free AI");
     }
+  }
 
-    return res.status(500).json({ error: err?.message || "AI Generation error" });
+  try {
+    const text = await generateFreeAI(promptText);
+    return res.json({
+      text,
+      candidates: [{ content: { parts: [{ text }] } }],
+    });
+  } catch (err: any) {
+    req.log.error({ err }, "Free AI generation failed");
+    return res.status(500).json({ error: err?.message || "AI generation failed" });
   }
 });
 
