@@ -817,7 +817,7 @@ const ProfileView = ({
           )}
         </div>
       </div>
-      <div className="mb-12 flex flex-col items-center text-center sm:flex-row sm:text-right gap-6 sm:gap-10">
+      <div className="mb-12 flex flex-col items-center text-center sm:flex-row sm:text-start gap-6 sm:gap-10">
         <div className="relative group flex flex-col items-center">
           <div className="relative">
             <div 
@@ -871,7 +871,7 @@ const ProfileView = ({
             </div>
           )}
         </div>
-        <div className="flex-grow text-center sm:text-right">
+        <div className="flex-grow text-center sm:text-start">
           <h2 className="mb-2 text-3xl sm:text-4xl font-display font-bold tracking-tight text-[#1A1A1A]">
             {profile.displayName}
           </h2>
@@ -902,20 +902,20 @@ const ProfileView = ({
             </div>
 
           <div className="flex flex-wrap justify-center sm:justify-start gap-6 sm:gap-10">
-            <div className="text-center sm:text-right">
+            <div className="text-center sm:text-start">
               <div className="text-xl sm:text-2xl font-display font-bold">{userNovels.length}</div>
               <div className="text-[10px] uppercase tracking-widest text-black/30 font-bold">{t('novels')}</div>
             </div>
             <button 
               onClick={() => setShowFollowers(true)}
-              className="text-center sm:text-right cursor-pointer hover:opacity-70 transition-opacity"
+              className="text-center sm:text-start cursor-pointer hover:opacity-70 transition-opacity"
             >
               <div className="text-xl sm:text-2xl font-display font-bold">{followersCount}</div>
               <div className="text-[10px] uppercase tracking-widest text-black/30 font-bold">{t('followers')}</div>
             </button>
             <button
               onClick={() => setShowFollowingList(true)}
-              className="text-center sm:text-right cursor-pointer hover:opacity-70 transition-opacity"
+              className="text-center sm:text-start cursor-pointer hover:opacity-70 transition-opacity"
             >
               <div className="text-xl sm:text-2xl font-display font-bold">{followingCount}</div>
               <div className="text-[10px] uppercase tracking-widest text-black/30 font-bold">{t('following_count')}</div>
