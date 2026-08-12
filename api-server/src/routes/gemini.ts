@@ -4,57 +4,56 @@ import { GoogleGenAI } from "@google/genai";
 const router = Router();
 
 function generateDynamicNovelAI(promptText: string): string {
-  const text = promptText.trim();
-  
-  let titleMatch = text.match(/(?:بعنوان|عنوان|رواية|قصة)\s*[:"']?([^\n"':،.]+)/i);
-  let title = titleMatch ? titleMatch[1].trim() : "";
+  const cleanPrompt = promptText.replace(/System:[\s\S]*?\n/gi, '').trim();
 
-  let charMatch = text.match(/(?:البطل|الشخصية|باسم|شخصية)\s*[:"']?([^\n"':،.]+)/i);
-  let character = charMatch ? charMatch[1].trim() : "";
+  // Extract explicit novel title if mentioned
+  const titleMatch = cleanPrompt.match(/(?:بعنوان|عنوان|رواية|قصة)\s*[:"']?([^\n"':،.]+)/i);
+  const title = titleMatch ? titleMatch[1].trim() : "";
 
-  let genre = "دراما وغموض";
-  if (text.includes("رعب") || text.includes("خوف") || text.includes("شياطين")) genre = "رعب وتشويق مظلم";
-  else if (text.includes("فانتازيا") || text.includes("سحر") || text.includes("مملكة")) genre = "فانتازيا ملحمية";
-  else if (text.includes("رومانسي") || text.includes("حب") || text.includes("عاطفي")) genre = "رومانسية وعاطفة";
-  else if (text.includes("خيال علمي") || text.includes("فضاء") || text.includes("مستقبل")) genre = "خيال علمي ودراسات مستقبلية";
+  // Extract character names mentioned in the prompt
+  const knownNames = cleanPrompt.match(/[\u0600-\u06FF]{3,12}/g) || [];
+  const stopWords = new Set(["اكتب", "فصل", "قصة", "رواية", "البطل", "الشخصية", "عن", "في", "على", "من", "إلى", "هذا", "هذه", "التي", "الذي", "مع", "كان", "كانت", "القصة", "مشهد", "أكمل", "بعنوان", "ساد", "الصمت"]);
+  const probableCharacters = Array.from(new Set(knownNames.filter(n => n.length > 2 && !stopWords.has(n))));
+  const mainCharacter = probableCharacters[0] || "البطل";
+  const secondaryCharacter = probableCharacters[1] || "الشخصية المرافقة";
 
-  if (text.includes("فصل") || text.includes("مشهد") || text.includes("اكتب") || text.includes("chapter") || text.includes("أكمل")) {
-    const openings = [
-      `ساد الصمت المطبق أرجاء المكان، بينما كانت صدى الخطوات تتردد ببطء كأنها تعد الثواني الأخيرة قبل العاصفة. ${title ? `في هذه المرحلة من حكاية "${title}"،` : ''} ${character ? `وقف ${character} يتأمل` : 'وقف البطل يتأمل'} المشهد بعينين تملؤهما الريبة والترقب.`,
-      `انبعثت نبرة خافتة من عتمة الأفق، تحذر مما هو قادم. ${title ? `كل حجر في "${title}"` : 'كل شبر في هذا العالم'} ينبض بأسرار طال كتمانه، وحان الوقت لتتجلى الحقائق أمام الجميع.`,
-      `لم تكن تلك الليلة كغيرها من الليالي؛ فالعاصفة التي ضربت الأرجاء رسمت معالم فصل جديد مفعم بالحماس والتحدي. ${character ? `خطى ${character} نحو الأمام بثبات` : 'خطت الأقدام نحو الأمام بثبات'} دون تراجع.`
-    ];
+  // Extract last non-empty line/sentence from prompt to continue seamlessly
+  const lines = cleanPrompt.split(/\n+/).map(l => l.trim()).filter(l => l.length > 3 && !l.includes("اكتب") && !l.includes("أكمل"));
+  const lastLine = lines.length > 0 ? lines[lines.length - 1] : "";
 
-    const developments = [
-      `تداعت الذكريات القديمة كشريط سينمائي متسارع، معلنة بداية مواجهة مصيرية لا مفر منها. كانت التفاصيل الدقيقة تشير إلى وجود سر محجوب خلف جدران الزمان، ينتظر من يملك الشجاعة ليكتشفه.`,
-      `اقتربت الأنفاس، واشتدت وطأة الصراع النفسي بين ما يفرض الواجب وما تمليه الرغبة الحاسمة. كان القرار يتطلب شجاعة فائقة وتضحية لا يستهان بها.`,
-      `ارتفعت حدة التوتر عندما ظهرت العلامة المجهولة في المكان، لتغير مجرى الأحداث كلياً وتضع جميع الحسابات في مهب الريح.`
-    ];
+  if (cleanPrompt.includes("شخصية") || cleanPrompt.includes("شخصيات") || cleanPrompt.includes("character")) {
+    return `### 🎭 تطوير وتحليل الشخصيات ${title ? `لرواية "${title}"` : ''}:
 
-    const dialogues = character ? [
-      `التفت ${character} ونظر بحدة ثم قال:\n- "إذا كان هذا هو التحدي الذي ينبغي عليّ خوضه، فلن أتردد لحظة واحدة."`,
-      `همس ${character} بنبرة واثقة:\n- "مهما كانت الأسرار المخبوءة هنا، سأكشفها جميعاً قبل انقضاء هذه الليلة."`
-    ] : [
-      `تردد الصوت الخافت في الأرجاء:\n- "ليس كل ما يلمع ذهباً، وبعض الحقائق قد تكون أشد قسوة من الخيال."`,
-      `قال بصوت يحمل نبرة حسم:\n- "الآن تبدأ المواجهة الحقيقية، ولا مجال للعودة إلى الوراء."`
-    ];
+1. **${mainCharacter}**:
+   - **الدور والموقع**: البطل الرئيسي ومحرك الأحداث الأخير.
+   - **الدافع السردي**: كشف الحقائق المخفية والتغلب على المواقف الحرجة التي واجهته.
+   - **السلوك والقرارات**: يميل لاتخاذ قرارات شجاعة بناءً على التفاصيل التي ظهرت في المشهد الأخير.
 
-    const endings = [
-      `ومع انطفاء أخر شمعة في الرواق، أدرك الجميع أن ما حدث ليس سوى بداية لشيء أكبر وأعظم ممّا يتخيله عقل.`,
-      `ساد الهدوء مجدداً، ولكنها كانت الهدوء الذي يسبق الإعصار... لتظل الأسئلة معلقة في الهواء بانتظار الأحداث القادمة.`
-    ];
-
-    const rand = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
-    return `${rand(openings)}\n\n${rand(developments)}\n\n${rand(dialogues)}\n\n${rand(endings)}`;
+2. **${secondaryCharacter}**:
+   - **الدور والموقع**: الطرف الداعم والتأثير الدرامي المباشر.
+   - **السمات**: الحكمة، الوفاء، والسرعة في استجابة المتغيرات الطارئة.`;
   }
 
-  if (text.includes("شخصية") || text.includes("شخصيات") || text.includes("character")) {
-    const mainHero = character || "البطل الرئيسي";
-    return `### 🎭 دليل الشخصيات المبتكر (${genre}):
+  if (cleanPrompt.includes("ملخص") || cleanPrompt.includes("حبكة") || cleanPrompt.includes("summary")) {
+    return `### 📖 ملخص السرد والتطوير الدرامي ${title ? `لرواية "${title}"` : ''}:
 
-1. **${mainHero}**:
-   - **الدور**: البطل المحوري في القصة.
-   - **السمات**: يتميز بالشجاعة، الذكاء الوقاد، والقدرة على سرعة البديهة وتحليل المخاطر تحت الضغط.
+تتواصل الحكاية بالتركيز على ${mainCharacter} في هذه المرحلة المصيرية. تتسارع الأحداث مع ظهور خيوط جديدة تتطلب مواجهة حتمية مع ${secondaryCharacter}.
+
+ينتج عن هذا التواجه سلسلة من القرارات غير المتوقعة التي تدفع بالقصة نحو أفق جديد مفعم بالإثارة والتحدي السردي المشوق.`;
+  }
+
+  // Dynamic context continuation built from user's actual text
+  let header = "";
+  if (lastLine) {
+    header = `متابعة لمسار القصة بعد ("...${lastLine.slice(-80)}"):\n\n`;
+  }
+
+  const p1 = `واصل ${mainCharacter} خطواته بثبات نحو الوجهة الجديدة، متفحصاً كل زاوية بكامل التركيز. كانت المؤشرات حوله تدل على أن القرارات القادمة لن تكون سهلة، وأن كل تفصيلة ستحدث فارقاً حقيقياً في مجرى الأحداث.`;
+  const p2 = `التفت ${mainCharacter} وقال بنبرة واضحة ومباشرة:\n- "إن لم نتحرك الآن ونحسم موقفنا، فستفلت الأمور من أيدينا."`;
+  const p3 = `أومأ ${secondaryCharacter} برأسه موافقاً، ودون أي تردد، بدأت المرحلة التالية من هذه المواجهة المصيرية لتفتح الفصل القادم على أسرار وتحديات جديدة.`;
+
+  return `${header}${p1}\n\n${p2}\n\n${p3}`;
+}ء الوقاد، والقدرة على سرعة البديهة وتحليل المخاطر تحت الضغط.
    - **الدافع الشخصي**: السعي نحو كشف الحقيقة واستعادة الحقوق المسلوبة وسط عالم مليء بالتحديات.
 
 2. **الشخصية المضادة (الخصم الرئيسي)**:
