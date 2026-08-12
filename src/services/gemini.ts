@@ -2,10 +2,15 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const generateWithRetry = async (params: any, _provider: 'openai' | 'gemini' = 'gemini', retries = 3, backoff = 15000): Promise<any> => {
   try {
+    const customKey = typeof localStorage !== 'undefined' ? (localStorage.getItem('custom_gemini_api_key') || '') : '';
+    const bodyParams = customKey 
+      ? { ...params, config: { ...(params?.config || {}), userApiKey: customKey } } 
+      : params;
+
     const response = await fetch(`${import.meta.env.BASE_URL || '/'}api/gemini/generate`.replace('//', '/'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
+      body: JSON.stringify(bodyParams),
     });
 
     const text = await response.text();
@@ -31,15 +36,29 @@ const generateWithRetry = async (params: any, _provider: 'openai' | 'gemini' = '
       .map((c: any) => (c.parts || []).map((p: any) => p.text).join('\n'))
       .join('\n\n');
 
-    const textLower = promptText.toLowerCase();
-    let text = `تداخلت الظلال على جدران الغرفة العتيقة بينما كانت قطرات المطر تضرب النافذة المظلمة بإيقاع منتظم حزين. وقف يتأمل اللوحة الغامضة المعلقة في زاوية الرواق، وشعور غريب بالريبة يجري في عروقه كالسم البارد.
+    let titleMatch = promptText.match(/(?:بعنوان|عنوان|رواية|قصة)\s*[:"']?([^\n"':،.]+)/i);
+    let title = titleMatch ? titleMatch[1].trim() : "";
 
-لم تكن تلك الليلة كبقية الليالي؛ فكل حجر في هذا المكان يحمل سراً طال كتمانه، وكل خفقة قلب تُنبئ بنقطة تحول لا رجعة فيها.`;
+    let charMatch = promptText.match(/(?:البطل|الشخصية|باسم|شخصية)\s*[:"']?([^\n"':،.]+)/i);
+    let character = charMatch ? charMatch[1].trim() : "";
+
+    let textLower = promptText.toLowerCase();
+    let text = "";
 
     if (textLower.includes("شخصية") || textLower.includes("شخصيات")) {
-      text = `1. **البطل الرئيسي (ليث الساهر)**: شاب غامض وذكي يمتلك نظرة ثاقبة ويسعى لكشف الحقيقة.\n2. **الخصم المباشر (الكونت فكتور)**: شخصية باردة ونافذة تحرك الأحداث خلف الكواليس.\n3. **الشخصية الداعمة (ميار الحكيمة)**: عالمة بالمخطوطات القديمة وشجاعة.`;
+      const hero = character || "البطل الرئيسي";
+      text = `1. **${hero}**: شاب غامض وذكي يمتلك نظرة ثاقبة ويسعى لكشف الحقيقة في القصة.\n2. **الخصم المباشر**: شخصية باردة ونافذة تحرك الأحداث خلف الكواليس لتحدي البطل.\n3. **الشخصية الداعمة**: حليف وفي يمتلك معرفة واسعة بالأسرار القديمة.`;
     } else if (textLower.includes("ملخص") || textLower.includes("حبكة") || textLower.includes("قصة")) {
-      text = `في عالم يقف على حافة الهاوية بين الضياء والظلال، تتقاطع أقدار أرواح تبحث عن الحقيقة وسط ركام الأسرار القديمة. تبدأ الملحمة عندما يكتشف البطل وثيقة نادرة تكشف وجود قوة خفية تعيد تشكيل التاريخ.`;
+      const mainTitle = title || "ملحمة الصراع والحقيقة";
+      text = `### 📖 ملخص رواية: "${mainTitle}"\n\nتتدفق الأحداث في إطار درامي تشويقي يبدأ عندما تنكشف أولى خيوط اللغز الكبير. يجد الأبطال أنفسهم في مواجهة صراعات متتالية تضع مبادئهم وخياراتهم على المحك، حيث يترتب على كل قرار يتخذه البطل نتائج مصيرية تعيد تشكيل مجرى الحكاية بالكامل.`;
+    } else {
+      const openings = [
+        `ساد الصمت المطبق أرجاء المكان، بينما كانت صدى الخطوات تتردد ببطء قبل البداية الحاسمة. ${title ? `في هذه المرحلة من حكاية "${title}"،` : ''} ${character ? `وقف ${character} يتأمل` : 'وقف البطل يتأمل'} المشهد بعينين تملؤهما الريبة والترقب.`,
+        `انبعثت نبرة خافتة من عتمة الأفق، تحذر مما هو قادم. ${title ? `كل حجر في "${title}"` : 'كل شبر في هذا العالم'} ينبض بأسرار طال كتمانه، وحان الوقت لتتجلى الحقائق أمام الجميع.`,
+        `لم تكن تلك الليلة كغيرها من الليالي؛ فالعاصفة التي ضربت الأرجاء رسمت معالم فصل جديد مفعم بالحماس والتحدي. ${character ? `خطى ${character} نحو الأمام بثبات` : 'خطت الأقدام نحو الأمام بثبات'} دون تراجع.`
+      ];
+      const randOpening = openings[Math.floor(Math.random() * openings.length)];
+      text = `${randOpening}\n\nتداعت الذكريات القديمة كشريط سينمائي متسارع، معلنة بداية مواجهة مصيرية لا مفر منها. كانت التفاصيل الدقيقة تشير إلى وجود سر محجوب خلف جدران الزمان، ينتظر من يملك الشجاعة ليكتشفه.\n\n${character ? `التفت ${character} ونظر بحدة ثم قال:\n- "إذا كان هذا هو التحدي، فلن أتردد لحظة واحدة."` : `تردد الصوت الخافت في الأرجاء:\n- "الآن تبدأ المواجهة الحقيقية، ولا مجال للعودة إلى الوراء."`}\n\nومع انطفاء أخر شمعة في الرواق، أدرك الجميع أن ما حدث ليس سوى بداية لشيء أكبر وأعظم ممّا يتخيله عقل.`;
     }
 
     return {
