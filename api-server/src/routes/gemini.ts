@@ -26,35 +26,65 @@ function getAI() {
 }
 
 router.post("/gemini/generate", async (req, res) => {
+  const { model = "gemini-2.5-flash", contents, config } = req.body as {
+    model?: string;
+    contents: { role: string; parts: { text: string }[] }[];
+    config?: Record<string, unknown>;
+  };
+
+  if (!contents || !Array.isArray(contents)) {
+    res.status(400).json({ error: "contents is required" });
+    return;
+  }
+
+  const promptText = contents
+    .map(c => (c.parts || []).map(p => p.text).join("\n"))
+    .join("\n\n");
+
   try {
-    const { model = "gemini-2.5-flash", contents, config } = req.body as {
-      model?: string;
-      contents: { role: string; parts: { text: string }[] }[];
-      config?: Record<string, unknown>;
-    };
-
-    if (!contents || !Array.isArray(contents)) {
-      res.status(400).json({ error: "contents is required" });
-      return;
-    }
-
-    const safetySettings = [
-      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
-      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
-    ];
-
     const ai = getAI();
     const response = await ai.models.generateContent({
       model,
       contents,
-      config: { safetySettings: safetySettings as any, ...config },
+      config: {
+        safetySettings: [
+          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+        ] as any,
+        ...config,
+      },
     });
-    res.json({ text: response.text, candidates: response.candidates });
+    return res.json({ text: response.text, candidates: response.candidates });
   } catch (err: any) {
-    req.log.error({ err }, "Gemini generate error");
-    res.status(500).json({ error: err?.message || "Gemini error" });
+    req.log.warn({ errMessage: err?.message }, "Gemini API error, activating free AI provider fallback");
+
+    try {
+      const pollResponse = await fetch("https://text.pollinations.ai/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: promptText }],
+          model: "openai",
+          seed: Math.floor(Math.random() * 1000000),
+        }),
+      });
+
+      if (pollResponse.ok) {
+        const text = await pollResponse.text();
+        if (text && text.trim().length > 0) {
+          return res.json({
+            text: text.trim(),
+            candidates: [{ content: { parts: [{ text: text.trim() }] } }],
+          });
+        }
+      }
+    } catch (pollErr: any) {
+      req.log.error({ pollErr: pollErr?.message }, "Pollinations AI fallback error");
+    }
+
+    return res.status(500).json({ error: err?.message || "AI Generation error" });
   }
 });
 
