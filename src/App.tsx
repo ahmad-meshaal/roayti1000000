@@ -4909,6 +4909,7 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin }:
   const [teraboxLink, setTeraboxLink] = useState(profile.teraboxLink || '');
   const [links, setLinks] = useState<ExternalLink[]>(profile.links || []);
   const [fontFamily, setFontFamily] = useState(profile.fontFamily || 'var(--font-serif)');
+  const [customAiKey, setCustomAiKey] = useState(() => localStorage.getItem('custom_gemini_api_key') || '');
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -5168,6 +5169,55 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin }:
         </div>
       </div>
 
+      <div className="monochrome-card mb-8 border border-amber-500/30 bg-amber-50/30">
+        <h3 className="mb-2 font-bold flex items-center gap-2 text-base text-amber-950">
+          <Sparkles size={18} className="text-amber-500" /> {t('ai_settings_title', 'تفعيل الذكاء الاصطناعي الحقيقي (Google Gemini)')}
+        </h3>
+        <p className="text-xs text-black/70 mb-4 leading-relaxed">
+          {t('ai_settings_desc', 'لكتابة وتوليد الروايات والفصول بصورة حقيقية وديناميكية 100% بالذكاء الاصطناعي، أدخل مفتاحك المجاني من جوجل. الحصول عليه مجاني وبدون بطاقة بنكية.')}
+        </p>
+
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <input 
+              type="password"
+              placeholder="ألصق مفتاح Gemini هنا (يبدأ بـ AIzaSy...)"
+              value={customAiKey}
+              onChange={(e) => setCustomAiKey(e.target.value)}
+              className="monochrome-input flex-grow text-xs font-mono bg-white"
+            />
+            <button 
+              onClick={() => {
+                localStorage.setItem('custom_gemini_api_key', customAiKey.trim());
+                showToast('تم حفظ وتفعيل مفتاح الذكاء الاصطناعي المباشر بنجاح!', 'success');
+              }}
+              className="monochrome-button px-5 py-2 text-xs whitespace-nowrap bg-black text-white"
+            >
+              {t('save_key', 'حفظ وتفعيل')}
+            </button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-2 border-t border-black/5">
+            <a 
+              href="https://aistudio.google.com/app/apikey" 
+              target="_blank" 
+              rel="noreferrer"
+              className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1"
+            >
+              <ExternalLink size={14} /> {t('get_free_key_link', 'اضغط هنا للحصول على مفتاحك المجاني فوراً من Google AI Studio')}
+            </a>
+            {localStorage.getItem('custom_gemini_api_key') ? (
+              <span className="text-[11px] font-bold text-green-700 bg-green-100 px-3 py-1 rounded-full">
+                ✓ {t('key_active', 'المفتاح مفعل وشغال')}
+              </span>
+            ) : (
+              <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-3 py-1 rounded-full">
+                ⚠️ {t('no_key_set', 'لم يتم إدخال مفتاح بعد')}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
 
       <div className="monochrome-card mb-8">
         <h3 className="mb-4 font-bold">{t('about_app')}</h3>
