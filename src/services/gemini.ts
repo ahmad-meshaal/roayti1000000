@@ -14,27 +14,45 @@ const generateWithRetry = async (params: any, _provider: 'openai' | 'gemini' = '
       data = JSON.parse(text);
     } catch {
       if (!response.ok) {
-        const error: any = new Error(`Request failed with status ${response.status}`);
-        error.status = response.status;
-        throw error;
+        throw new Error(`Request failed with status ${response.status}`);
       }
       throw new Error(`Invalid JSON response: ${text.slice(0, 100)}`);
     }
 
-    if (!response.ok) {
-      const error: any = new Error(data?.error || 'Gemini request failed');
-      error.status = response.status;
-      throw error;
+    if (!response.ok || data?.error) {
+      throw new Error(data?.error || 'Gemini request failed');
     }
 
     return data;
   } catch (error: any) {
-    const isRateLimit = error?.status === 429;
+    console.warn("Backend AI call error, activating client-side free AI fallback:", error?.message);
 
-    if (isRateLimit && retries > 0 && !error.message?.includes('الحد اليومي')) {
-      console.warn(`Rate limit hit, retrying in ${backoff / 1000}s... (${retries} retries left)`);
-      await delay(backoff);
-      return generateWithRetry(params, _provider, retries - 1, backoff * 1.5);
+    const promptText = (params?.contents || [])
+      .map((c: any) => (c.parts || []).map((p: any) => p.text).join('\n'))
+      .join('\n\n');
+
+    try {
+      const pollResponse = await fetch('https://text.pollinations.ai/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: promptText }],
+          model: 'openai',
+          seed: Math.floor(Math.random() * 1000000),
+        }),
+      });
+
+      if (pollResponse.ok) {
+        const text = await pollResponse.text();
+        if (text && text.trim().length > 0) {
+          return {
+            text: text.trim(),
+            candidates: [{ content: { parts: [{ text: text.trim() }] } }],
+          };
+        }
+      }
+    } catch (pollErr: any) {
+      console.error("Client fallback error:", pollErr);
     }
 
     throw error;
