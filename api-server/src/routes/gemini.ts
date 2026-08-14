@@ -20,16 +20,9 @@ router.post("/gemini/generate", async (req, res) => {
     ? userApiKey.trim()
     : (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "").trim();
 
-  if (!geminiKey || geminiKey.length < 15) {
+  if (!geminiKey || geminiKey.length < 5) {
     res.status(400).json({ 
       error: "مفتاح الذكاء الاصطناعي (GEMINI_API_KEY) غير مضاف. يرجى إضافته في إعدادات البيئة على Render أو في إعدادات الملف الشخصي." 
-    });
-    return;
-  }
-
-  if (!geminiKey.startsWith("AIzaSy")) {
-    res.status(400).json({ 
-      error: "مفتاح Google Gemini المضاف غير صالح (يجب أن يبدأ المفتاح بـ AIzaSy...). يرجى إنشاؤه مجاناً في 5 ثوانٍ من aistudio.google.com وتحديثه." 
     });
     return;
   }
