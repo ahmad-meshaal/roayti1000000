@@ -2617,11 +2617,13 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
               onBack={() => setView('explore')}
               content={
                 <div className={`space-y-4 ${i18n.language === 'ar' ? 'text-right' : 'text-left'}`}>
-                  <p>{t('terms_intro', 'باستخدامك لموقع روايتي، أنت توافق على الشروط التالية:')}</p>
-                  <h3 className="font-bold">{t('terms_content_title', '1. المحتوى')}</h3>
-                  <p>{t('terms_content_desc', 'أنت المسؤول الوحيد عن المحتوى الذي تنشئه باستخدام أدوات الذكاء الاصطناعي الخاصة بنا.')}</p>
-                  <h3 className="font-bold">{t('terms_behavior_title', '2. السلوك المقبول')}</h3>
-                  <p>{t('terms_behavior_desc', 'يُمنع استخدام الموقع لنشر محتوى ينتهك حقوق الآخرين أو يحرض على العنف.')}</p>
+                  <p>{t('terms_intro', 'بمجرد استخدامك لموقع روايتي، أنت توافق على الشروط والسياسات التالية بصورة تامة ومباشرة:')}</p>
+                  <h3 className="font-bold">{t('terms_content_title', '1. المحتوى والتوليد بالذكاء الاصطناعي')}</h3>
+                  <p>{t('terms_content_desc', 'أنت المسؤول الوحيد عن المحتوى الذي تنشئه أو تطوره باستخدام أدوات الذكاء الاصطناعي الخاصة بنا.')}</p>
+                  <h3 className="font-bold">{t('terms_behavior_title', '2. السلوك المقبول الاستخدام')}</h3>
+                  <p>{t('terms_behavior_desc', 'يُمنع استخدام الموقع لنشر محتوى ينتهك حقوق الآخرين أو يحرض على العنف أو الإساءة.')}</p>
+                  <h3 className="font-bold text-red-600">{t('terms_liability_title', '3. الإخلاء والتنازل عن الملاحقة القضائية')}</h3>
+                  <p className="bg-red-50 border border-red-200 p-3 rounded-lg text-xs leading-relaxed font-semibold">{t('terms_liability_desc', 'بمجرد استخدامك لمنصة روايتي، أنت تعلن موافقتك التامة على هذه الشروط، وتتعهد بصورة نهائية بعدم رفع أي قضية أو دعوى قضائية أو مطالبات مالية أو قانونية ضد موقع روايتي أو مالكيه أو مشغليه تحت أي ظرف من الظروف.')}</p>
                 </div>
               }
             />
@@ -5188,8 +5190,13 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin }:
             />
             <button 
               onClick={() => {
-                localStorage.setItem('custom_gemini_api_key', customAiKey.trim());
-                showToast('تم حفظ وتفعيل مفتاح الذكاء الاصطناعي المباشر بنجاح!', 'success');
+                const trimmedKey = customAiKey.trim();
+                if (trimmedKey && !trimmedKey.startsWith('AIzaSy')) {
+                  showToast(t('invalid_gemini_key_prefix', '⚠️ ملاحظة: مفتاح Google Gemini يجب أن يبدأ بـ AIzaSy... احصل عليه مجاناً من aistudio.google.com'), 'error');
+                } else {
+                  localStorage.setItem('custom_gemini_api_key', trimmedKey);
+                  showToast(t('key_saved_success', 'تم حفظ وتفعيل مفتاح الذكاء الاصطناعي المباشر بنجاح!'), 'success');
+                }
               }}
               className="monochrome-button px-5 py-2 text-xs whitespace-nowrap bg-black text-white"
             >
