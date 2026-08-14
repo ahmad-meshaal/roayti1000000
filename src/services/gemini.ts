@@ -25,46 +25,13 @@ const generateWithRetry = async (params: any, _provider: 'openai' | 'gemini' = '
     }
 
     if (!response.ok || data?.error) {
-      throw new Error(data?.error || 'Gemini request failed');
+      throw new Error(data?.error || `Gemini API error (Status ${response.status})`);
     }
 
     return data;
   } catch (error: any) {
-    console.warn("Backend AI call notice:", error?.message);
-
-    const promptText = (params?.contents || [])
-      .map((c: any) => (c.parts || []).map((p: any) => p.text).join('\n'))
-      .join('\n\n');
-
-    let titleMatch = promptText.match(/(?:بعنوان|عنوان|رواية|قصة)\s*[:"']?([^\n"':،.]+)/i);
-    let title = titleMatch ? titleMatch[1].trim() : "";
-
-    let charMatch = promptText.match(/(?:البطل|الشخصية|باسم|شخصية)\s*[:"']?([^\n"':،.]+)/i);
-    let character = charMatch ? charMatch[1].trim() : "";
-
-    let textLower = promptText.toLowerCase();
-    let text = "";
-
-    if (textLower.includes("شخصية") || textLower.includes("شخصيات")) {
-      const hero = character || "البطل الرئيسي";
-      text = `1. **${hero}**: شاب غامض وذكي يمتلك نظرة ثاقبة ويسعى لكشف الحقيقة في القصة.\n2. **الخصم المباشر**: شخصية باردة ونافذة تحرك الأحداث خلف الكواليس لتحدي البطل.\n3. **الشخصية الداعمة**: حليف وفي يمتلك معرفة واسعة بالأسرار القديمة.`;
-    } else if (textLower.includes("ملخص") || textLower.includes("حبكة") || textLower.includes("قصة")) {
-      const mainTitle = title || "ملحمة الصراع والحقيقة";
-      text = `### 📖 ملخص رواية: "${mainTitle}"\n\nتتدفق الأحداث في إطار درامي تشويقي يبدأ عندما تنكشف أولى خيوط اللغز الكبير. يجد الأبطال أنفسهم في مواجهة صراعات متتالية تضع مبادئهم وخياراتهم على المحك، حيث يترتب على كل قرار يتخذه البطل نتائج مصيرية تعيد تشكيل مجرى الحكاية بالكامل.`;
-    } else {
-      const openings = [
-        `ساد الصمت المطبق أرجاء المكان، بينما كانت صدى الخطوات تتردد ببطء قبل البداية الحاسمة. ${title ? `في هذه المرحلة من حكاية "${title}"،` : ''} ${character ? `وقف ${character} يتأمل` : 'وقف البطل يتأمل'} المشهد بعينين تملؤهما الريبة والترقب.`,
-        `انبعثت نبرة خافتة من عتمة الأفق، تحذر مما هو قادم. ${title ? `كل حجر في "${title}"` : 'كل شبر في هذا العالم'} ينبض بأسرار طال كتمانه، وحان الوقت لتتجلى الحقائق أمام الجميع.`,
-        `لم تكن تلك الليلة كغيرها من الليالي؛ فالعاصفة التي ضربت الأرجاء رسمت معالم فصل جديد مفعم بالحماس والتحدي. ${character ? `خطى ${character} نحو الأمام بثبات` : 'خطت الأقدام نحو الأمام بثبات'} دون تراجع.`
-      ];
-      const randOpening = openings[Math.floor(Math.random() * openings.length)];
-      text = `${randOpening}\n\nتداعت الذكريات القديمة كشريط سينمائي متسارع، معلنة بداية مواجهة مصيرية لا مفر منها. كانت التفاصيل الدقيقة تشير إلى وجود سر محجوب خلف جدران الزمان، ينتظر من يملك الشجاعة ليكتشفه.\n\n${character ? `التفت ${character} ونظر بحدة ثم قال:\n- "إذا كان هذا هو التحدي، فلن أتردد لحظة واحدة."` : `تردد الصوت الخافت في الأرجاء:\n- "الآن تبدأ المواجهة الحقيقية، ولا مجال للعودة إلى الوراء."`}\n\nومع انطفاء أخر شمعة في الرواق، أدرك الجميع أن ما حدث ليس سوى بداية لشيء أكبر وأعظم ممّا يتخيله عقل.`;
-    }
-
-    return {
-      text,
-      candidates: [{ content: { parts: [{ text }] } }],
-    };
+    console.error("Gemini API call failed:", error?.message);
+    throw error;
   }
 };
 
