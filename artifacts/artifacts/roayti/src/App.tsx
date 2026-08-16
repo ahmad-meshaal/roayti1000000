@@ -1063,13 +1063,14 @@ const FollowingView = ({
   );
 };
 
-const CommentsSection = ({ novelId, chapterId, currentUser, currentUserId, isAdmin, onDeleteComment }: { 
+const CommentsSection = ({ novelId, chapterId, currentUser, currentUserId, isAdmin, onDeleteComment, showToast }: { 
   novelId: string, 
   chapterId: string, 
   currentUser: any | null,
   currentUserId: string | null,
   isAdmin: boolean,
-  onDeleteComment: (commentId: string) => void
+  onDeleteComment?: (commentId: string) => void,
+  showToast?: (msg: string, type?: 'success' | 'error') => void
 }) => {
   const { t, i18n } = useTranslation();
   const [comments, setComments] = useState<Comment[]>([]);
@@ -1083,10 +1084,9 @@ const CommentsSection = ({ novelId, chapterId, currentUser, currentUserId, isAdm
     api.getComments(novelId, chapterId).then(data => {
       if (cancelled) return;
       setComments(data || []);
-      // Initialize random realistic initial likes for seeded comments
       const initialLikes: Record<string, { count: number; liked: boolean }> = {};
-      (data || []).forEach((c: any, index: number) => {
-        initialLikes[c.id] = { count: 3 + (index * 2) % 11, liked: false };
+      (data || []).forEach((c: any) => {
+        initialLikes[c.id] = { count: 0, liked: false };
       });
       setCommentLikes(initialLikes);
     }).catch(console.error);
@@ -1104,6 +1104,21 @@ const CommentsSection = ({ novelId, chapterId, currentUser, currentUserId, isAdm
         }
       };
     });
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!window.confirm(t('delete_comment_confirm_message', 'هل أنت متأكد من حذف هذا التعليق؟'))) return;
+    try {
+      await api.deleteComment(novelId, chapterId, commentId);
+      setComments(prev => prev.filter(c => c.id !== commentId));
+      if (onDeleteComment) {
+        try { onDeleteComment(commentId); } catch (_) {}
+      }
+      if (showToast) showToast(t('comment_deleted_success', 'تم حذف التعليق بنجاح.'), 'success');
+    } catch (err) {
+      console.error('Failed to delete comment:', err);
+      if (showToast) showToast(t('error_deleting_comment', 'فشل حذف التعليق.'), 'error');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1128,8 +1143,10 @@ const CommentsSection = ({ novelId, chapterId, currentUser, currentUserId, isAdm
       setCommentLikes(prev => ({ ...prev, [created.id]: { count: 0, liked: false } }));
       setNewComment('');
       setGuestName('');
+      if (showToast) showToast(t('post_comment_success', 'تم نشر التعليق بنجاح'), 'success');
     } catch (e) {
       console.error('Comment submit failed:', e);
+      if (showToast) showToast(t('error_posting_comment', 'فشل نشر التعليق'), 'error');
     }
     setSubmitting(false);
   };
@@ -1207,7 +1224,8 @@ const CommentsSection = ({ novelId, chapterId, currentUser, currentUserId, isAdm
       {/* Comments List */}
       <div className="space-y-6">
         {comments.map(comment => {
-          const likesInfo = commentLikes[comment.id] || { count: 2, liked: false };
+          const likesInfo = commentLikes[comment.id] || { count: 0, liked: false };
+          const canDelete = isAdmin || (currentUserId && (currentUserId === comment.authorUid || currentUserId === comment.novelId));
           return (
             <div key={comment.id} className="group flex gap-4 rounded-xl border border-black/5 bg-white p-4 transition-all hover:border-black/15 hover:shadow-xs">
               <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full shadow-xs">
@@ -1223,14 +1241,14 @@ const CommentsSection = ({ novelId, chapterId, currentUser, currentUserId, isAdm
                 <div className="mb-1.5 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-sm text-black/90">{comment.authorName}</span>
-                    <span className="rounded-md bg-black/5 px-1.5 py-0.5 text-[9px] font-medium text-black/40">قارئ</span>
-                    {(isAdmin || (currentUserId && currentUserId === comment.authorUid)) && (
+                    {isAdmin && <span className="rounded-md bg-amber-500/10 text-amber-800 px-1.5 py-0.5 text-[9px] font-semibold">إدارة</span>}
+                    {canDelete && (
                       <button 
-                        onClick={() => onDeleteComment(comment.id)}
-                        className="text-red-500 hover:text-red-700 transition-colors opacity-0 group-hover:opacity-100"
-                        title={t('delete_comment', 'حذف التعليق')}
+                        onClick={() => handleDeleteComment(comment.id)}
+                        className="text-red-500 hover:text-red-700 transition-colors p-1 rounded hover:bg-red-50"
+                        title={isAdmin ? 'حذف التعليق (أدمن)' : t('delete_comment', 'حذف التعليق')}
                       >
-                        <Trash2 size={13} />
+                        <Trash2 size={14} />
                       </button>
                     )}
                   </div>
@@ -4388,6 +4406,7 @@ const Reader = ({
                 currentUser={currentUser} 
                 currentUserId={currentUserId}
                 isAdmin={isAdmin}
+                showToast={showToast}
                 onDeleteComment={(commentId) => onDeleteComment(novel.id, activeChapter.id, commentId)}
               />
 
