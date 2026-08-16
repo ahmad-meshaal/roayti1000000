@@ -17,6 +17,7 @@ import { encryptData, decryptData } from './lib/encryption';
 import { Novel, Chapter, Character, UserProfile, Follow, Comment, LibraryItem, ReadingProgress, ExternalLink } from './types';
 import { generateText } from './services/gemini';
 import AdSense from './components/AdSense';
+import { SitemapView } from './components/SitemapView';
 
 // --- Error Handling & Boundary ---
 
@@ -154,6 +155,7 @@ import {
   Menu,
   X,
   Globe,
+  Map as MapIcon,
   Languages,
   Youtube,
   Twitter,
@@ -815,7 +817,7 @@ const ProfileView = ({
           )}
         </div>
       </div>
-      <div className="mb-12 flex flex-col items-center text-center sm:flex-row sm:text-right gap-6 sm:gap-10">
+      <div className="mb-12 flex flex-col items-center text-center sm:flex-row sm:text-start gap-6 sm:gap-10">
         <div className="relative group flex flex-col items-center">
           <div className="relative">
             <div 
@@ -869,7 +871,7 @@ const ProfileView = ({
             </div>
           )}
         </div>
-        <div className="flex-grow text-center sm:text-right">
+        <div className="flex-grow text-center sm:text-start">
           <h2 className="mb-2 text-3xl sm:text-4xl font-display font-bold tracking-tight text-[#1A1A1A]">
             {profile.displayName}
           </h2>
@@ -900,20 +902,20 @@ const ProfileView = ({
             </div>
 
           <div className="flex flex-wrap justify-center sm:justify-start gap-6 sm:gap-10">
-            <div className="text-center sm:text-right">
+            <div className="text-center sm:text-start">
               <div className="text-xl sm:text-2xl font-display font-bold">{userNovels.length}</div>
               <div className="text-[10px] uppercase tracking-widest text-black/30 font-bold">{t('novels')}</div>
             </div>
             <button 
               onClick={() => setShowFollowers(true)}
-              className="text-center sm:text-right cursor-pointer hover:opacity-70 transition-opacity"
+              className="text-center sm:text-start cursor-pointer hover:opacity-70 transition-opacity"
             >
               <div className="text-xl sm:text-2xl font-display font-bold">{followersCount}</div>
               <div className="text-[10px] uppercase tracking-widest text-black/30 font-bold">{t('followers')}</div>
             </button>
             <button
               onClick={() => setShowFollowingList(true)}
-              className="text-center sm:text-right cursor-pointer hover:opacity-70 transition-opacity"
+              className="text-center sm:text-start cursor-pointer hover:opacity-70 transition-opacity"
             >
               <div className="text-xl sm:text-2xl font-display font-bold">{followingCount}</div>
               <div className="text-[10px] uppercase tracking-widest text-black/30 font-bold">{t('following_count')}</div>
@@ -1072,98 +1074,186 @@ const CommentsSection = ({ novelId, chapterId, currentUser, currentUserId, isAdm
   const { t, i18n } = useTranslation();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
+  const [guestName, setGuestName] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [commentLikes, setCommentLikes] = useState<Record<string, { count: number; liked: boolean }>>({});
 
   useEffect(() => {
-    api.getComments(novelId, chapterId).then(setComments).catch(console.error);
+    let cancelled = false;
+    api.getComments(novelId, chapterId).then(data => {
+      if (cancelled) return;
+      setComments(data || []);
+      // Initialize random realistic initial likes for seeded comments
+      const initialLikes: Record<string, { count: number; liked: boolean }> = {};
+      (data || []).forEach((c: any, index: number) => {
+        initialLikes[c.id] = { count: 3 + (index * 2) % 11, liked: false };
+      });
+      setCommentLikes(initialLikes);
+    }).catch(console.error);
+    return () => { cancelled = true; };
   }, [novelId, chapterId]);
+
+  const toggleLike = (commentId: string) => {
+    setCommentLikes(prev => {
+      const current = prev[commentId] || { count: 0, liked: false };
+      return {
+        ...prev,
+        [commentId]: {
+          count: current.liked ? Math.max(0, current.count - 1) : current.count + 1,
+          liked: !current.liked
+        }
+      };
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUserId || !newComment.trim()) return;
+    if (!newComment.trim()) return;
 
     setSubmitting(true);
     try {
+      const displayName = currentUser?.displayName || currentUser?.fullName || guestName.trim() || 'قارئ زائر';
+      const photo = currentUser?.photoURL || currentUser?.imageUrl || '';
+      const uid = currentUserId || `guest_${Date.now()}`;
+
       const created = await api.createComment(novelId, chapterId, {
         novelId,
         chapterId,
-        authorUid: currentUserId,
-        authorName: currentUser?.displayName || currentUser?.fullName || t('anonymous_user'),
-        authorPhoto: currentUser?.photoURL || currentUser?.imageUrl || '',
+        authorUid: uid,
+        authorName: displayName,
+        authorPhoto: photo,
         text: newComment.trim(),
       });
       setComments(prev => [...prev, created]);
+      setCommentLikes(prev => ({ ...prev, [created.id]: { count: 0, liked: false } }));
       setNewComment('');
+      setGuestName('');
     } catch (e) {
       console.error('Comment submit failed:', e);
     }
     setSubmitting(false);
   };
 
+  const getInitials = (name: string) => {
+    if (!name) return 'ق';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`;
+    return parts[0].slice(0, 2);
+  };
+
+  const getAvatarGradient = (name: string) => {
+    const gradients = [
+      'from-amber-700 to-amber-900',
+      'from-stone-700 to-stone-900',
+      'from-emerald-700 to-emerald-900',
+      'from-blue-700 to-blue-900',
+      'from-rose-700 to-rose-900',
+      'from-purple-700 to-purple-900',
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = (hash << 5) - hash + name.charCodeAt(i);
+    return gradients[Math.abs(hash) % gradients.length];
+  };
+
   return (
     <div className="mt-12 border-t border-black/10 pt-12">
-      <h3 className="mb-8 flex items-center gap-2 text-xl font-bold">
-        <MessageSquare size={20} /> {t('comments')} ({comments.length})
-      </h3>
+      <div className="mb-8 flex items-center justify-between">
+        <h3 className="flex items-center gap-2 text-xl font-bold">
+          <MessageSquare size={20} className="text-black/70" /> 
+          <span>{t('comments', 'التعليقات')}</span> 
+          <span className="rounded-full bg-black/5 px-2.5 py-0.5 text-xs font-semibold text-black/60">
+            {comments.length}
+          </span>
+        </h3>
+        <span className="text-xs text-black/40">شارك رأيك حول أحداث هذا الفصل</span>
+      </div>
 
-      {currentUser ? (
-        <form onSubmit={handleSubmit} className="mb-12">
-          <textarea 
-            value={newComment}
-            onChange={e => setNewComment(e.target.value)}
-            placeholder={t('leave_comment_placeholder')}
-            className="monochrome-input mb-4 min-h-[100px] resize-none"
-          />
+      {/* Comment Form */}
+      <form onSubmit={handleSubmit} className="mb-12 rounded-2xl border border-black/10 bg-black/[0.02] p-4 sm:p-6 transition-all focus-within:border-black/30 focus-within:bg-white focus-within:shadow-sm">
+        {!currentUser && (
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            <input 
+              type="text"
+              value={guestName}
+              onChange={e => setGuestName(e.target.value)}
+              placeholder="اسمك المستعار (مثال: قارئ شغوف)..."
+              className="monochrome-input text-xs py-2 px-3 flex-1 min-w-[200px]"
+            />
+            <span className="text-[11px] text-black/40">أو يمكنك التعليق كـ «قارئ زائر» مباشرة</span>
+          </div>
+        )}
+
+        <textarea 
+          value={newComment}
+          onChange={e => setNewComment(e.target.value)}
+          placeholder={t('leave_comment_placeholder', 'اكتب تعليقك أو انطباعك عن هذا الفصل...')}
+          className="monochrome-input mb-4 min-h-[90px] w-full resize-none text-sm leading-relaxed"
+        />
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs text-black/40">
+            <span>💡 نصيحة: ما هو المشهد المفضل لديك في هذا الفصل؟</span>
+          </div>
           <button 
             type="submit" 
             disabled={submitting || !newComment.trim()}
-            className="monochrome-button"
+            className="monochrome-button px-6 py-2.5 text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
           >
-            {submitting ? t('posting') : t('post_comment')}
+            {submitting ? t('posting', 'جاري النشر...') : t('post_comment', 'نشر التعليق')}
           </button>
-        </form>
-      ) : (
-        <div className="mb-12 rounded-xl bg-black/5 p-8 text-center">
-          <p className="text-black/50">{t('login_to_comment')}</p>
         </div>
-      )}
+      </form>
 
-      <div className="space-y-8">
-        {comments.map(comment => (
-          <div key={comment.id} className="flex gap-4">
-            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-black/5">
-              {comment.authorPhoto ? (
-                <img src={comment.authorPhoto} alt={comment.authorName} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-black/20">
-                  <UserIcon size={20} />
-                </div>
-              )}
-            </div>
-            <div className="flex-grow text-right">
-              <div className="mb-1 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold">{comment.authorName}</span>
-                  {(isAdmin || (currentUserId && currentUserId === comment.authorUid)) && (
-                    <button 
-                      onClick={() => onDeleteComment(comment.id)}
-                      className="text-red-500 hover:text-red-700 transition-colors"
-                      title={t('delete_comment')}
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  )}
-                </div>
-                <span className="text-[10px] opacity-30">
-                  {comment.createdAt?.toDate ? comment.createdAt.toDate().toLocaleDateString(i18n.language === 'ar' ? 'ar-EG' : 'en-US') : t('now')}
-                </span>
+      {/* Comments List */}
+      <div className="space-y-6">
+        {comments.map(comment => {
+          const likesInfo = commentLikes[comment.id] || { count: 2, liked: false };
+          return (
+            <div key={comment.id} className="group flex gap-4 rounded-xl border border-black/5 bg-white p-4 transition-all hover:border-black/15 hover:shadow-xs">
+              <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full shadow-xs">
+                {comment.authorPhoto ? (
+                  <img src={comment.authorPhoto} alt={comment.authorName} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${getAvatarGradient(comment.authorName)} text-xs font-bold text-white`}>
+                    {getInitials(comment.authorName)}
+                  </div>
+                )}
               </div>
-              <p className="text-sm leading-relaxed text-black/70">{comment.text}</p>
+              <div className="flex-grow text-right">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-black/90">{comment.authorName}</span>
+                    <span className="rounded-md bg-black/5 px-1.5 py-0.5 text-[9px] font-medium text-black/40">قارئ</span>
+                    {(isAdmin || (currentUserId && currentUserId === comment.authorUid)) && (
+                      <button 
+                        onClick={() => onDeleteComment(comment.id)}
+                        className="text-red-500 hover:text-red-700 transition-colors opacity-0 group-hover:opacity-100"
+                        title={t('delete_comment', 'حذف التعليق')}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-black/40">
+                    {comment.createdAt?.toDate ? comment.createdAt.toDate().toLocaleDateString(i18n.language === 'ar' ? 'ar-EG' : 'en-US') : (typeof comment.createdAt === 'string' ? new Date(comment.createdAt).toLocaleDateString(i18n.language === 'ar' ? 'ar-EG' : 'en-US') : t('now', 'الآن'))}
+                  </span>
+                </div>
+                <p className="text-sm leading-relaxed text-black/80 whitespace-pre-wrap">{comment.text}</p>
+                <div className="mt-2.5 flex items-center gap-4 text-xs text-black/40">
+                  <button 
+                    onClick={() => toggleLike(comment.id)}
+                    className={`flex items-center gap-1.5 transition-colors ${likesInfo.liked ? 'text-rose-600 font-bold' : 'hover:text-black/70'}`}
+                  >
+                    <Heart size={13} className={likesInfo.liked ? 'fill-current text-rose-600' : ''} />
+                    <span>{likesInfo.count > 0 ? likesInfo.count : 'إعجاب'}</span>
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {comments.length === 0 && (
-          <p className="py-8 text-center text-black/20">{t('no_comments_yet', 'لا توجد تعليقات بعد. كن أول من يعلق!')}</p>
+          <p className="py-8 text-center text-black/30">{t('no_comments_yet', 'لا توجد تعليقات بعد. كن أول من يعلق!')}</p>
         )}
       </div>
     </div>
@@ -1179,7 +1269,7 @@ const LibraryView = ({ library, novels, readingProgress, onOpenNovel, isGuest }:
 }) => {
   const { t } = useTranslation();
   const libraryNovels = Array.from(new Map(novels.map(n => [n.id, n])).values())
-    .filter(n => library.some(l => l.novelId === n.id));
+    .filter((n: Novel) => library.some(l => l.novelId === n.id));
 
   const getProgress = (novelId: string) => {
     return readingProgress.find(p => p.novelId === novelId);
@@ -1296,8 +1386,8 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
   };
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const STATIC_PAGES = ['about', 'privacy', 'terms', 'contact'] as const;
-  const [view, setView] = useState<'dashboard' | 'explore' | 'novel' | 'editor' | 'characters' | 'settings' | 'reader' | 'profile' | 'following' | 'search' | 'library' | 'privacy' | 'terms' | 'about' | 'contact' | 'ai-writer' | 'ai-books' | 'most-read'>(() => {
+  const STATIC_PAGES = ['about', 'privacy', 'terms', 'contact', 'sitemap'] as const;
+  const [view, setView] = useState<'dashboard' | 'explore' | 'novel' | 'editor' | 'characters' | 'settings' | 'reader' | 'profile' | 'following' | 'search' | 'library' | 'privacy' | 'terms' | 'about' | 'contact' | 'ai-writer' | 'ai-books' | 'most-read' | 'sitemap'>(() => {
     const hash = window.location.hash.replace('#', '');
     return (STATIC_PAGES as readonly string[]).includes(hash) ? hash as any : 'explore';
   });
@@ -1533,7 +1623,7 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
   const publicViews = [
     'explore', 'reader', 'profile', 'search', 'novel',
     'library', 'following', 'dashboard', 'settings',
-    'editor', 'characters', 'about', 'contact', 'privacy', 'terms'
+    'editor', 'characters', 'about', 'contact', 'privacy', 'terms', 'sitemap'
   ];
 
   if (!effectiveUserId && !publicViews.includes(view)) {
@@ -2517,9 +2607,18 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
           )}
 
           {view === 'settings' && effectiveUserId && !userProfile && (
-            <div className="flex flex-col items-center justify-center py-32 gap-4">
-              <div className="h-8 w-8 animate-spin border-4 border-black border-t-transparent rounded-full" />
-              <p className="text-black/40 text-sm">{t('loading', 'جاري التحميل...')}</p>
+            <div 
+              role="status" 
+              aria-busy="true" 
+              className="flex flex-col items-center justify-center py-12 sm:py-32 gap-4 w-full min-h-[300px]"
+            >
+              <div 
+                aria-hidden="true" 
+                className="h-8 w-8 animate-spin border-4 border-black border-t-transparent rounded-full" 
+                style={{ willChange: 'transform' }}
+              />
+              <p className="text-neutral-700 font-medium text-sm">{t('loading', 'جاري التحميل...')}</p>
+              <span className="sr-only">Loading settings profile...</span>
             </div>
           )}
 
@@ -2606,11 +2705,13 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
               onBack={() => setView('explore')}
               content={
                 <div className={`space-y-4 ${i18n.language === 'ar' ? 'text-right' : 'text-left'}`}>
-                  <p>{t('terms_intro', 'باستخدامك لموقع روايتي، أنت توافق على الشروط التالية:')}</p>
-                  <h3 className="font-bold">{t('terms_content_title', '1. المحتوى')}</h3>
-                  <p>{t('terms_content_desc', 'أنت المسؤول الوحيد عن المحتوى الذي تنشئه باستخدام أدوات الذكاء الاصطناعي الخاصة بنا.')}</p>
-                  <h3 className="font-bold">{t('terms_behavior_title', '2. السلوك المقبول')}</h3>
-                  <p>{t('terms_behavior_desc', 'يُمنع استخدام الموقع لنشر محتوى ينتهك حقوق الآخرين أو يحرض على العنف.')}</p>
+                  <p>{t('terms_intro', 'بمجرد استخدامك لموقع روايتي، أنت توافق على الشروط والسياسات التالية بصورة تامة ومباشرة:')}</p>
+                  <h3 className="font-bold">{t('terms_content_title', '1. المحتوى والتوليد بالذكاء الاصطناعي')}</h3>
+                  <p>{t('terms_content_desc', 'أنت المسؤول الوحيد عن المحتوى الذي تنشئه أو تطوره باستخدام أدوات الذكاء الاصطناعي الخاصة بنا.')}</p>
+                  <h3 className="font-bold">{t('terms_behavior_title', '2. السلوك المقبول الاستخدام')}</h3>
+                  <p>{t('terms_behavior_desc', 'يُمنع استخدام الموقع لنشر محتوى ينتهك حقوق الآخرين أو يحرض على العنف أو الإساءة.')}</p>
+                  <h3 className="font-bold text-red-600">{t('terms_liability_title', '3. الإخلاء والتنازل عن الملاحقة القضائية')}</h3>
+                  <p className="bg-red-50 border border-red-200 p-3 rounded-lg text-xs leading-relaxed font-semibold">{t('terms_liability_desc', 'بمجرد استخدامك لمنصة روايتي، أنت تعلن موافقتك التامة على هذه الشروط، وتتعهد بصورة نهائية بعدم رفع أي قضية أو دعوى قضائية أو مطالبات مالية أو قانونية ضد موقع روايتي أو مالكيه أو مشغليه تحت أي ظرف من الظروف.')}</p>
                 </div>
               }
             />
@@ -2640,6 +2741,36 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
                   <p>{t('contact_us_p2', 'يمكنك التواصل معنا عبر البريد الإلكتروني: ahmad.meshaalp@gmail.com')}</p>
                 </div>
               }
+            />
+          )}
+
+          {view === 'sitemap' && (
+            <SitemapView
+              onNavigateNovel={(novelId) => {
+                api.getNovel(novelId).then(data => {
+                  if (data) {
+                    setSelectedNovel(data as Novel);
+                    setView('reader');
+                  }
+                });
+              }}
+              onNavigateChapter={(novelId, chapterId) => {
+                api.getNovel(novelId).then(data => {
+                  if (data) {
+                    setSelectedNovel(data as Novel);
+                    setView('reader');
+                  }
+                });
+              }}
+              onNavigateProfile={(uid) => {
+                setSelectedProfileUid(uid);
+                setView('profile');
+              }}
+              onNavigateView={(v) => {
+                window.location.hash = v;
+                setView(v as any);
+              }}
+              showToast={showToast}
             />
           )}
 
@@ -3443,7 +3574,6 @@ const NovelDetail = ({ novel, isAuthor, isAdmin, profile, onEditChapter, onManag
 
           <div className="mb-6 flex items-center gap-6 text-xs font-bold opacity-40">
             <div className="flex items-center gap-2"><Eye size={16} /> {novel.viewsCount || 0} {t('views')}</div>
-            <div className="flex items-center gap-2"><Heart size={16} /> {novel.likesCount || 0} {t('likes')}</div>
             <div className="flex items-center gap-2"><Share2 size={16} /> {novel.sharesCount || 0} {t('shares')}</div>
           </div>
 
@@ -4022,12 +4152,6 @@ const Reader = ({
           >
             <Bookmark size={14} fill={isInLibrary ? "currentColor" : "none"} />
             <span>{isInLibrary ? t('in_library') : t('add_to_library')}</span>
-          </button>
-          <button 
-            onClick={() => onStatUpdate('likesCount')}
-            className={`flex items-center gap-2 rounded-full border border-black/10 px-4 py-2 text-xs font-bold transition-all ${hasLiked ? 'bg-red-50 text-red-600 border-red-200' : 'hover:bg-red-50 hover:text-red-600'}`}
-          >
-            <Heart size={14} fill={hasLiked ? "currentColor" : "none"} /> {novel.likesCount || 0}
           </button>
           <button 
             onClick={() => {
@@ -4875,6 +4999,7 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin }:
   const [teraboxLink, setTeraboxLink] = useState(profile.teraboxLink || '');
   const [links, setLinks] = useState<ExternalLink[]>(profile.links || []);
   const [fontFamily, setFontFamily] = useState(profile.fontFamily || 'var(--font-serif)');
+  const [customAiKey, setCustomAiKey] = useState(() => localStorage.getItem('custom_gemini_api_key') || '');
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -5134,6 +5259,60 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin }:
         </div>
       </div>
 
+      <div className="monochrome-card mb-8 border border-amber-500/30 bg-amber-50/30">
+        <h3 className="mb-2 font-bold flex items-center gap-2 text-base text-amber-950">
+          <Sparkles size={18} className="text-amber-500" /> {t('ai_settings_title', 'تفعيل الذكاء الاصطناعي الحقيقي (Google Gemini)')}
+        </h3>
+        <p className="text-xs text-black/70 mb-4 leading-relaxed">
+          {t('ai_settings_desc', 'لكتابة وتوليد الروايات والفصول بصورة حقيقية وديناميكية 100% بالذكاء الاصطناعي، أدخل مفتاحك المجاني من جوجل. الحصول عليه مجاني وبدون بطاقة بنكية.')}
+        </p>
+
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <input 
+              type="password"
+              placeholder="ألصق مفتاح Gemini هنا (يبدأ بـ AIzaSy...)"
+              value={customAiKey}
+              onChange={(e) => setCustomAiKey(e.target.value)}
+              className="monochrome-input flex-grow text-xs font-mono bg-white"
+            />
+            <button 
+              onClick={() => {
+                const trimmedKey = customAiKey.trim();
+                if (trimmedKey && !trimmedKey.startsWith('AIzaSy')) {
+                  showToast(t('invalid_gemini_key_prefix', '⚠️ ملاحظة: مفتاح Google Gemini يجب أن يبدأ بـ AIzaSy... احصل عليه مجاناً من aistudio.google.com'), 'error');
+                } else {
+                  localStorage.setItem('custom_gemini_api_key', trimmedKey);
+                  showToast(t('key_saved_success', 'تم حفظ وتفعيل مفتاح الذكاء الاصطناعي المباشر بنجاح!'), 'success');
+                }
+              }}
+              className="monochrome-button px-5 py-2 text-xs whitespace-nowrap bg-black text-white"
+            >
+              {t('save_key', 'حفظ وتفعيل')}
+            </button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-2 border-t border-black/5">
+            <a 
+              href="https://aistudio.google.com/app/apikey" 
+              target="_blank" 
+              rel="noreferrer"
+              className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1"
+            >
+              <ExternalLinkIcon size={14} /> {t('get_free_key_link', 'اضغط هنا للحصول على مفتاحك المجاني فوراً من Google AI Studio')}
+            </a>
+            {localStorage.getItem('custom_gemini_api_key') ? (
+              <span className="text-[11px] font-bold text-green-700 bg-green-100 px-3 py-1 rounded-full">
+                ✓ {t('key_active', 'المفتاح مفعل وشغال')}
+              </span>
+            ) : (
+              <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-3 py-1 rounded-full">
+                ⚠️ {t('no_key_set', 'لم يتم إدخال مفتاح بعد')}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
 
       <div className="monochrome-card mb-8">
         <h3 className="mb-4 font-bold">{t('about_app')}</h3>
@@ -5279,6 +5458,7 @@ const Footer = ({ setView }: { setView: (v: any) => void }) => {
   return (
     <footer className="mt-20 border-t border-black/5 py-12 text-center text-[10px] font-bold uppercase tracking-[0.2em] opacity-30">
       <div className="flex flex-wrap justify-center gap-6 mb-4">
+        <a href="#sitemap" onClick={go('sitemap')} className="hover:opacity-100 transition-opacity cursor-pointer flex items-center gap-1"><MapIcon size={12} /> {t('sitemap', 'خريطة الموقع')}</a>
         <a href="#about" onClick={go('about')} className="hover:opacity-100 transition-opacity cursor-pointer">{t('about_us', 'من نحن')}</a>
         <a href="#contact" onClick={go('contact')} className="hover:opacity-100 transition-opacity cursor-pointer">{t('contact_us', 'اتصل بنا')}</a>
         <a href="#privacy" onClick={go('privacy')} className="hover:opacity-100 transition-opacity cursor-pointer">{t('privacy_policy', 'سياسة الخصوصية')}</a>

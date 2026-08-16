@@ -1074,98 +1074,186 @@ const CommentsSection = ({ novelId, chapterId, currentUser, currentUserId, isAdm
   const { t, i18n } = useTranslation();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
+  const [guestName, setGuestName] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [commentLikes, setCommentLikes] = useState<Record<string, { count: number; liked: boolean }>>({});
 
   useEffect(() => {
-    api.getComments(novelId, chapterId).then(setComments).catch(console.error);
+    let cancelled = false;
+    api.getComments(novelId, chapterId).then(data => {
+      if (cancelled) return;
+      setComments(data || []);
+      // Initialize random realistic initial likes for seeded comments
+      const initialLikes: Record<string, { count: number; liked: boolean }> = {};
+      (data || []).forEach((c: any, index: number) => {
+        initialLikes[c.id] = { count: 3 + (index * 2) % 11, liked: false };
+      });
+      setCommentLikes(initialLikes);
+    }).catch(console.error);
+    return () => { cancelled = true; };
   }, [novelId, chapterId]);
+
+  const toggleLike = (commentId: string) => {
+    setCommentLikes(prev => {
+      const current = prev[commentId] || { count: 0, liked: false };
+      return {
+        ...prev,
+        [commentId]: {
+          count: current.liked ? Math.max(0, current.count - 1) : current.count + 1,
+          liked: !current.liked
+        }
+      };
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUserId || !newComment.trim()) return;
+    if (!newComment.trim()) return;
 
     setSubmitting(true);
     try {
+      const displayName = currentUser?.displayName || currentUser?.fullName || guestName.trim() || 'قارئ زائر';
+      const photo = currentUser?.photoURL || currentUser?.imageUrl || '';
+      const uid = currentUserId || `guest_${Date.now()}`;
+
       const created = await api.createComment(novelId, chapterId, {
         novelId,
         chapterId,
-        authorUid: currentUserId,
-        authorName: currentUser?.displayName || currentUser?.fullName || t('anonymous_user'),
-        authorPhoto: currentUser?.photoURL || currentUser?.imageUrl || '',
+        authorUid: uid,
+        authorName: displayName,
+        authorPhoto: photo,
         text: newComment.trim(),
       });
       setComments(prev => [...prev, created]);
+      setCommentLikes(prev => ({ ...prev, [created.id]: { count: 0, liked: false } }));
       setNewComment('');
+      setGuestName('');
     } catch (e) {
       console.error('Comment submit failed:', e);
     }
     setSubmitting(false);
   };
 
+  const getInitials = (name: string) => {
+    if (!name) return 'ق';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`;
+    return parts[0].slice(0, 2);
+  };
+
+  const getAvatarGradient = (name: string) => {
+    const gradients = [
+      'from-amber-700 to-amber-900',
+      'from-stone-700 to-stone-900',
+      'from-emerald-700 to-emerald-900',
+      'from-blue-700 to-blue-900',
+      'from-rose-700 to-rose-900',
+      'from-purple-700 to-purple-900',
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = (hash << 5) - hash + name.charCodeAt(i);
+    return gradients[Math.abs(hash) % gradients.length];
+  };
+
   return (
     <div className="mt-12 border-t border-black/10 pt-12">
-      <h3 className="mb-8 flex items-center gap-2 text-xl font-bold">
-        <MessageSquare size={20} /> {t('comments')} ({comments.length})
-      </h3>
+      <div className="mb-8 flex items-center justify-between">
+        <h3 className="flex items-center gap-2 text-xl font-bold">
+          <MessageSquare size={20} className="text-black/70" /> 
+          <span>{t('comments', 'التعليقات')}</span> 
+          <span className="rounded-full bg-black/5 px-2.5 py-0.5 text-xs font-semibold text-black/60">
+            {comments.length}
+          </span>
+        </h3>
+        <span className="text-xs text-black/40">شارك رأيك حول أحداث هذا الفصل</span>
+      </div>
 
-      {currentUser ? (
-        <form onSubmit={handleSubmit} className="mb-12">
-          <textarea 
-            value={newComment}
-            onChange={e => setNewComment(e.target.value)}
-            placeholder={t('leave_comment_placeholder')}
-            className="monochrome-input mb-4 min-h-[100px] resize-none"
-          />
+      {/* Comment Form */}
+      <form onSubmit={handleSubmit} className="mb-12 rounded-2xl border border-black/10 bg-black/[0.02] p-4 sm:p-6 transition-all focus-within:border-black/30 focus-within:bg-white focus-within:shadow-sm">
+        {!currentUser && (
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            <input 
+              type="text"
+              value={guestName}
+              onChange={e => setGuestName(e.target.value)}
+              placeholder="اسمك المستعار (مثال: قارئ شغوف)..."
+              className="monochrome-input text-xs py-2 px-3 flex-1 min-w-[200px]"
+            />
+            <span className="text-[11px] text-black/40">أو يمكنك التعليق كـ «قارئ زائر» مباشرة</span>
+          </div>
+        )}
+
+        <textarea 
+          value={newComment}
+          onChange={e => setNewComment(e.target.value)}
+          placeholder={t('leave_comment_placeholder', 'اكتب تعليقك أو انطباعك عن هذا الفصل...')}
+          className="monochrome-input mb-4 min-h-[90px] w-full resize-none text-sm leading-relaxed"
+        />
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs text-black/40">
+            <span>💡 نصيحة: ما هو المشهد المفضل لديك في هذا الفصل؟</span>
+          </div>
           <button 
             type="submit" 
             disabled={submitting || !newComment.trim()}
-            className="monochrome-button"
+            className="monochrome-button px-6 py-2.5 text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
           >
-            {submitting ? t('posting') : t('post_comment')}
+            {submitting ? t('posting', 'جاري النشر...') : t('post_comment', 'نشر التعليق')}
           </button>
-        </form>
-      ) : (
-        <div className="mb-12 rounded-xl bg-black/5 p-8 text-center">
-          <p className="text-black/50">{t('login_to_comment')}</p>
         </div>
-      )}
+      </form>
 
-      <div className="space-y-8">
-        {comments.map(comment => (
-          <div key={comment.id} className="flex gap-4">
-            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-black/5">
-              {comment.authorPhoto ? (
-                <img src={comment.authorPhoto} alt={comment.authorName} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-black/20">
-                  <UserIcon size={20} />
-                </div>
-              )}
-            </div>
-            <div className="flex-grow text-right">
-              <div className="mb-1 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold">{comment.authorName}</span>
-                  {(isAdmin || (currentUserId && currentUserId === comment.authorUid)) && (
-                    <button 
-                      onClick={() => onDeleteComment(comment.id)}
-                      className="text-red-500 hover:text-red-700 transition-colors"
-                      title={t('delete_comment')}
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  )}
-                </div>
-                <span className="text-[10px] opacity-30">
-                  {comment.createdAt?.toDate ? comment.createdAt.toDate().toLocaleDateString(i18n.language === 'ar' ? 'ar-EG' : 'en-US') : t('now')}
-                </span>
+      {/* Comments List */}
+      <div className="space-y-6">
+        {comments.map(comment => {
+          const likesInfo = commentLikes[comment.id] || { count: 2, liked: false };
+          return (
+            <div key={comment.id} className="group flex gap-4 rounded-xl border border-black/5 bg-white p-4 transition-all hover:border-black/15 hover:shadow-xs">
+              <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full shadow-xs">
+                {comment.authorPhoto ? (
+                  <img src={comment.authorPhoto} alt={comment.authorName} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${getAvatarGradient(comment.authorName)} text-xs font-bold text-white`}>
+                    {getInitials(comment.authorName)}
+                  </div>
+                )}
               </div>
-              <p className="text-sm leading-relaxed text-black/70">{comment.text}</p>
+              <div className="flex-grow text-right">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-black/90">{comment.authorName}</span>
+                    <span className="rounded-md bg-black/5 px-1.5 py-0.5 text-[9px] font-medium text-black/40">قارئ</span>
+                    {(isAdmin || (currentUserId && currentUserId === comment.authorUid)) && (
+                      <button 
+                        onClick={() => onDeleteComment(comment.id)}
+                        className="text-red-500 hover:text-red-700 transition-colors opacity-0 group-hover:opacity-100"
+                        title={t('delete_comment', 'حذف التعليق')}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-black/40">
+                    {comment.createdAt?.toDate ? comment.createdAt.toDate().toLocaleDateString(i18n.language === 'ar' ? 'ar-EG' : 'en-US') : (typeof comment.createdAt === 'string' ? new Date(comment.createdAt).toLocaleDateString(i18n.language === 'ar' ? 'ar-EG' : 'en-US') : t('now', 'الآن'))}
+                  </span>
+                </div>
+                <p className="text-sm leading-relaxed text-black/80 whitespace-pre-wrap">{comment.text}</p>
+                <div className="mt-2.5 flex items-center gap-4 text-xs text-black/40">
+                  <button 
+                    onClick={() => toggleLike(comment.id)}
+                    className={`flex items-center gap-1.5 transition-colors ${likesInfo.liked ? 'text-rose-600 font-bold' : 'hover:text-black/70'}`}
+                  >
+                    <Heart size={13} className={likesInfo.liked ? 'fill-current text-rose-600' : ''} />
+                    <span>{likesInfo.count > 0 ? likesInfo.count : 'إعجاب'}</span>
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {comments.length === 0 && (
-          <p className="py-8 text-center text-black/20">{t('no_comments_yet', 'لا توجد تعليقات بعد. كن أول من يعلق!')}</p>
+          <p className="py-8 text-center text-black/30">{t('no_comments_yet', 'لا توجد تعليقات بعد. كن أول من يعلق!')}</p>
         )}
       </div>
     </div>
