@@ -74,19 +74,21 @@ async function generateSitemapXml(hostUrl: string): Promise<string> {
     xml += `  </url>\n`;
   }
 
-  // 2. All Novels with Full Arabic Titles, Summaries, Covers & Authors
-  xml += `\n  <!-- ── 2. فهرس الروايات والقصص ── -->\n`;
+  // 2. Published Novels Only with Full Arabic Titles, Summaries, Covers & Authors
+  xml += `\n  <!-- ── 2. فهرس الروايات والقصص المنشورة فقط ── -->\n`;
+  const publishedNovelIds = new Set<string>();
   try {
-    const novels = await db.select().from(novelsTable).orderBy(desc(novelsTable.updatedAt));
+    const novels = await db.select().from(novelsTable).where(eq(novelsTable.status, "published")).orderBy(desc(novelsTable.updatedAt));
     for (const novel of novels) {
       if (!novel.id) continue;
+      publishedNovelIds.add(novel.id);
 
       const lastmod = novel.updatedAt
         ? new Date(novel.updatedAt).toISOString().split("T")[0]
         : today;
 
       const titleEsc = escapeXml(novel.title || "رواية");
-      const summaryEsc = escapeXml(novel.summary || `رواية ${novel.title} على منصة رويتي بالذكاء الاصطناعي`);
+      const summaryEsc = escapeXml(novel.summary || `رواية ${novel.title} على منصة روايتي بالذكاء الاصطناعي`);
       const coverImg = (novel.coverImage && novel.coverImage.startsWith("http")) 
         ? escapeXml(novel.coverImage) 
         : SITE_LOGO;
@@ -121,11 +123,12 @@ async function generateSitemapXml(hostUrl: string): Promise<string> {
     console.error("Error fetching novels for sitemap:", err);
   }
 
-  // 3. Chapters
-  xml += `\n  <!-- ── 3. فصول الروايات ── -->\n`;
+  // 3. Chapters of Published Novels Only
+  xml += `\n  <!-- ── 3. فصول الروايات المنشورة ── -->\n`;
   try {
     const chapters = await db.select().from(chaptersTable).orderBy(desc(chaptersTable.updatedAt));
-    for (const ch of chapters) {
+    const filteredChapters = chapters.filter(ch => publishedNovelIds.has(ch.novelId));
+    for (const ch of filteredChapters) {
       if (!ch.id || !ch.novelId) continue;
       const lastmod = ch.updatedAt
         ? new Date(ch.updatedAt).toISOString().split("T")[0]
@@ -190,8 +193,10 @@ async function generateSitemapHtml(hostUrl: string): Promise<string> {
     if (!baseUrl.startsWith("http")) baseUrl = `https://${baseUrl}`;
   }
 
-  const novels = await db.select().from(novelsTable).orderBy(desc(novelsTable.updatedAt));
-  const chapters = await db.select().from(chaptersTable).orderBy(desc(chaptersTable.updatedAt));
+  const novels = await db.select().from(novelsTable).where(eq(novelsTable.status, "published")).orderBy(desc(novelsTable.updatedAt));
+  const publishedNovelIds = new Set(novels.map(n => n.id));
+  const allChapters = await db.select().from(chaptersTable).orderBy(desc(chaptersTable.updatedAt));
+  const chapters = allChapters.filter(ch => publishedNovelIds.has(ch.novelId));
   const users = await db.select().from(usersTable).orderBy(desc(usersTable.updatedAt));
 
   return `<!DOCTYPE html>
@@ -223,7 +228,7 @@ async function generateSitemapHtml(hostUrl: string): Promise<string> {
 <body>
   <div class="container">
     <header>
-      <h1>🗺️ خريطة الموقع والفهرس الكامل - منصة رويتي</h1>
+      <h1>🗺️ خريطة الموقع والفهرس الكامل - منصة روايتي</h1>
       <p class="lead">${SITE_DESCRIPTION}</p>
       <p style="color: #64748b; font-size: 0.85rem;">رابط خريطة XML لمحركات البحث: <a href="${baseUrl}/sitemap.xml" style="color: #38bdf8;">sitemap.xml</a></p>
     </header>
@@ -238,12 +243,12 @@ async function generateSitemapHtml(hostUrl: string): Promise<string> {
       `).join("")}
     </div>
 
-    <h2>📚 فهرس الروايات والقصص (${novels.length} رواية)</h2>
+    <h2>📚 فهرس الروايات والقصص المنشورة (${novels.length} رواية)</h2>
     <div class="grid">
       ${novels.map(n => `
         <div class="card">
           <a href="${baseUrl}/?novelId=${n.id}">📖 ${n.title}</a>
-          <p>${n.summary ? n.summary.slice(0, 140) + '...' : 'اقرأ هذه الرواية كاملة على منصة رويتي'}</p>
+          <p>${n.summary ? n.summary.slice(0, 140) + '...' : 'اقرأ هذه الرواية كاملة على منصة روايتي'}</p>
         </div>
       `).join("")}
     </div>
@@ -259,7 +264,7 @@ async function generateSitemapHtml(hostUrl: string): Promise<string> {
       `).join("")}
     </ul>
 
-    <h2>📑 فصول الروايات المتاحة (${chapters.length} فصل)</h2>
+    <h2>📑 فصول الروايات المنشورة (${chapters.length} فصل)</h2>
     <ul class="list">
       ${chapters.slice(0, 100).map(c => `
         <li>
@@ -306,8 +311,10 @@ router.get(["/sitemap.html", "/sitemap-view"], async (req, res) => {
 router.get("/sitemap-data", async (req, res) => {
   try {
     const host = req.headers["x-forwarded-host"] || req.get("host") || "roayti.com";
-    const novels = await db.select().from(novelsTable).orderBy(desc(novelsTable.updatedAt));
+    const novels = await db.select().from(novelsTable).where(eq(novelsTable.status, "published")).orderBy(desc(novelsTable.updatedAt));
+    const publishedNovelIds = new Set(novels.map(n => n.id));
     const allChapters = await db.select().from(chaptersTable).orderBy(desc(chaptersTable.updatedAt));
+    const chapters = allChapters.filter(ch => publishedNovelIds.has(ch.novelId));
     const users = await db.select().from(usersTable).orderBy(desc(usersTable.updatedAt));
 
     res.json({
@@ -315,11 +322,11 @@ router.get("/sitemap-data", async (req, res) => {
       siteDescription: SITE_DESCRIPTION,
       host: `https://${host}`,
       totalNovels: novels.length,
-      totalChapters: allChapters.length,
+      totalChapters: chapters.length,
       totalAuthors: users.length,
       staticPages: STATIC_SECTIONS,
       novels,
-      chapters: allChapters,
+      chapters,
       users,
     });
   } catch (e: any) {

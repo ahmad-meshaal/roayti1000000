@@ -99,22 +99,30 @@ async function startServer() {
             const rows = await db.select().from(novelsTable).where(eq(novelsTable.id, novelId)).limit(1);
             if (rows.length > 0) {
               const novel = rows[0];
-              const pageTitle = `${novel.title} | رواية على منصة رويتي Roayti`;
-              const pageDesc = novel.summary ? novel.summary.slice(0, 200) : `اقرأ رواية ${novel.title} على منصة رويتي للروايات والقصص العربية بالذكاء الاصطناعي.`;
-              const coverImg = novel.coverImage || "https://roayti.com/og-image.png";
 
-              // Replace Title
-              html = html.replace(/<title>.*?<\/title>/gi, `<title>${pageTitle}</title>`);
-              // Replace Meta Description
-              html = html.replace(/<meta name="description" content=".*?"\s*\/?>/gi, `<meta name="description" content="${pageDesc}" />`);
-              // Replace OpenGraph
-              html = html.replace(/<meta property="og:title" content=".*?"\s*\/?>/gi, `<meta property="og:title" content="${pageTitle}" />`);
-              html = html.replace(/<meta property="og:description" content=".*?"\s*\/?>/gi, `<meta property="og:description" content="${pageDesc}" />`);
-              html = html.replace(/<meta property="og:image" content=".*?"\s*\/?>/gi, `<meta property="og:image" content="${coverImg}" />`);
-              // Replace Twitter
-              html = html.replace(/<meta name="twitter:title" content=".*?"\s*\/?>/gi, `<meta name="twitter:title" content="${pageTitle}" />`);
-              html = html.replace(/<meta name="twitter:description" content=".*?"\s*\/?>/gi, `<meta name="twitter:description" content="${pageDesc}" />`);
-              html = html.replace(/<meta name="twitter:image" content=".*?"\s*\/?>/gi, `<meta name="twitter:image" content="${coverImg}" />`);
+              if (novel.status !== 'published') {
+                // If not published, strictly prevent search engines from indexing it
+                html = html.replace(/<meta name="robots" content=".*?"\s*\/?>/gi, `<meta name="robots" content="noindex, nofollow" />`);
+              } else {
+                const pageTitle = `${novel.title} | رواية على منصة روايتي Roayti`;
+                const pageDesc = novel.summary ? novel.summary.slice(0, 200) : `اقرأ رواية ${novel.title} على منصة روايتي للروايات والقصص العربية بالذكاء الاصطناعي.`;
+                const coverImg = novel.coverImage || "https://roayti.com/pwa-512x512.png";
+
+                // Ensure robots meta is index, follow for published
+                html = html.replace(/<meta name="robots" content=".*?"\s*\/?>/gi, `<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />`);
+                // Replace Title
+                html = html.replace(/<title>.*?<\/title>/gi, `<title>${pageTitle}</title>`);
+                // Replace Meta Description
+                html = html.replace(/<meta name="description" content=".*?"\s*\/?>/gi, `<meta name="description" content="${pageDesc}" />`);
+                // Replace OpenGraph
+                html = html.replace(/<meta property="og:title" content=".*?"\s*\/?>/gi, `<meta property="og:title" content="${pageTitle}" />`);
+                html = html.replace(/<meta property="og:description" content=".*?"\s*\/?>/gi, `<meta property="og:description" content="${pageDesc}" />`);
+                html = html.replace(/<meta property="og:image" content=".*?"\s*\/?>/gi, `<meta property="og:image" content="${coverImg}" />`);
+                // Replace Twitter
+                html = html.replace(/<meta name="twitter:title" content=".*?"\s*\/?>/gi, `<meta name="twitter:title" content="${pageTitle}" />`);
+                html = html.replace(/<meta name="twitter:description" content=".*?"\s*\/?>/gi, `<meta name="twitter:description" content="${pageDesc}" />`);
+                html = html.replace(/<meta name="twitter:image" content=".*?"\s*\/?>/gi, `<meta name="twitter:image" content="${coverImg}" />`);
+              }
             }
           } catch (_) {}
         }
