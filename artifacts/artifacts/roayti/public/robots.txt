@@ -2,7 +2,7 @@ User-agent: *
 Allow: /
 
 # Sitemaps
-Sitemap: https://roayti.replit.app/sitemap.xml
+Sitemap: https://roayti.com/sitemap.xml
 
 # Crawl-delay
 Crawl-delay: 1
