@@ -45,6 +45,21 @@ async function startServer() {
     }
   });
 
+  // Direct HTML Sitemap at /sitemap.html with 200 OK
+  app.get(["/sitemap.html", "/sitemap-view"], async (req, res) => {
+    try {
+      const { generateSitemapHtml } = await import("./api-server/src/routes/sitemap");
+      const host = req.headers["x-forwarded-host"] || req.get("host") || "roayti.com";
+      const proto = (req.headers["x-forwarded-proto"] as string) || req.protocol || "https";
+      const fullHost = `${proto}://${host}`;
+      const html = await generateSitemapHtml(fullHost);
+      res.header("Content-Type", "text/html; charset=utf-8");
+      res.status(200).send(html);
+    } catch (err) {
+      res.status(500).send("Error generating HTML sitemap");
+    }
+  });
+
   // Robots.txt
   app.get("/robots.txt", (req, res) => {
     const host = req.headers["x-forwarded-host"] || req.get("host") || "roayti.com";
