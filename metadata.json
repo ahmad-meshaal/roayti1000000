@@ -1,6 +1,6 @@
 {
-  "name": "Roayti",
-  "description": "Roayti - منصة كتابة الروايات والقصص بالذكاء الاصطناعي AI-powered novel writing platform",
+  "name": "Roayti - روايتي",
+  "description": "روايتي - منصة كتابة الروايات والقصص بالذكاء الاصطناعي Roayti | منصة روايتي Roayti هي المنصة الروايات الأولى المتخصصة في قراءة وكتابة وتأليف الروايات والقصص التفاعلية باستخدام أحدث تقنيات الذكاء الاصطناعي AI.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -5,8 +5,10 @@ import { desc } from "drizzle-orm";
 
 const router = Router();
 
-const SITE_NAME = "رويتي - منصة كتابة الروايات والقصص بالذكاء الاصطناعي Roayti";
-const SITE_DESCRIPTION = "منصة رويتي Roayti هي المنصة العربية الأولى المتخصصة في قراءة وكتابة وتأليف الروايات والقصص التفاعلية باستخدام أحدث تقنيات الذكاء الاصطناعي AI.";
+const SITE_NAME = "روايتي - منصة كتابة الروايات والقصص بالذكاء الاصطناعي Roayti";
+const SITE_NAME_EN = "Roayti - AI-Powered Novel & Story Writing Platform";
+const SITE_DESCRIPTION = "منصة روايتي Roayti هي المنصة الروايات الأولى المتخصصة في قراءة وكتابة وتأليف الروايات والقصص التفاعلية باستخدام أحدث تقنيات الذكاء الاصطناعي AI.";
+const SITE_DESCRIPTION_EN = "Roayti is the premier novel platform specialized in reading, writing, and creating interactive novels and stories using cutting-edge Artificial Intelligence (AI) technology.";
 const SITE_LOGO = "https://roayti.com/pwa-512x512.png";
 
 function escapeXml(unsafe: string | null | undefined): string {
@@ -20,18 +22,18 @@ function escapeXml(unsafe: string | null | undefined): string {
 }
 
 const STATIC_SECTIONS = [
-  { path: "/", title: "الرئيسية - منصة رويتي", description: "الصفحة الرئيسية لمنصة رويتي لكتابة وقراءة الروايات والقصص العربية بالذكاء الاصطناعي", priority: "1.0", changefreq: "daily" },
+  { path: "/", title: "الرئيسية - منصة روايتي", description: "الصفحة الرئيسية لمنصة روايتي لكتابة وقراءة الروايات والقصص العربية بالذكاء الاصطناعي", priority: "1.0", changefreq: "daily" },
   { path: "/?view=explore", title: "استكشاف الروايات", description: "تصفح واستكشف أحدث الروايات والقصص العربية المنشورة بمختلف التصنيفات", priority: "0.95", changefreq: "hourly" },
-  { path: "/?view=most-read", title: "الروايات الأكثر قراءة", description: "قائمة الروايات والقصص الأكثر شعبية وتفاعلاً وقراءة على منصة رويتي", priority: "0.9", changefreq: "daily" },
+  { path: "/?view=most-read", title: "الروايات الأكثر قراءة", description: "قائمة الروايات والقصص الأكثر شعبية وتفاعلاً وقراءة على منصة روايتي", priority: "0.9", changefreq: "daily" },
   { path: "/?view=library", title: "المكتبة الشخصية", description: "مكتبة القارئ لحفظ الروايات المفضلة ومتابعة تقدم القراءة", priority: "0.85", changefreq: "daily" },
   { path: "/?view=ai-writer", title: "الكاتب الذكي بالذكاء الاصطناعي AI Writer", description: "أداة كتابة وتوليد وتطوير فصول الروايات والقصص والشخصيات بالذكاء الاصطناعي", priority: "0.9", changefreq: "weekly" },
   { path: "/?view=ai-books", title: "كتب الذكاء الاصطناعي", description: "مجموعة الكتب والقصص المولدة بالذكاء الاصطناعي مع تحليلات وتلخيصات ذكية", priority: "0.85", changefreq: "weekly" },
   { path: "/?view=dashboard", title: "لوحة تحكم الكاتب", description: "إدارة الروايات والفصول والإحصائيات ومتابعة القراء", priority: "0.8", changefreq: "weekly" },
-  { path: "/?view=sitemap", title: "خريطة الموقع والفهرس الكامل", description: "فهرس شامل لكافة صفحات وروايات وفصول ومؤلفي منصة رويتي", priority: "0.8", changefreq: "daily" },
-  { path: "/#about", title: "عن منصة رويتي", description: "تعرف على رؤية ورسالة منصة رويتي لتطوير الأدب العربي بتقنيات الذكاء الاصطناعي", priority: "0.6", changefreq: "monthly" },
-  { path: "/#privacy", title: "سياسة الخصوصية", description: "سياسة حماية بيانات وخصوصية المستخدمين والكتاب على منصة رويتي", priority: "0.5", changefreq: "monthly" },
-  { path: "/#terms", title: "شروط الاستخدام", description: "الشروط والأحكام الخاصة باستخدام ونشر المحتوى على منصة رويتي", priority: "0.5", changefreq: "monthly" },
-  { path: "/#contact", title: "اتصل بنا والدعم الفني", description: "تواصل مع فريق منصة رويتي للاستفسارات والدعم والشراكات", priority: "0.6", changefreq: "monthly" },
+  { path: "/?view=sitemap", title: "خريطة الموقع والفهرس الكامل", description: "فهرس شامل لكافة صفحات وروايات وفصول ومؤلفي منصة روايتي", priority: "0.8", changefreq: "daily" },
+  { path: "/#about", title: "عن منصة روايتي", description: "تعرف على رؤية ورسالة منصة روايتي لتطوير الأدب العربي بتقنيات الذكاء الاصطناعي", priority: "0.6", changefreq: "monthly" },
+  { path: "/#privacy", title: "سياسة الخصوصية", description: "سياسة حماية بيانات وخصوصية المستخدمين والكتاب على منصة روايتي", priority: "0.5", changefreq: "monthly" },
+  { path: "/#terms", title: "شروط الاستخدام", description: "الشروط والأحكام الخاصة باستخدام ونشر المحتوى على منصة روايتي", priority: "0.5", changefreq: "monthly" },
+  { path: "/#contact", title: "اتصل بنا والدعم الفني", description: "تواصل مع فريق منصة روايتي للاستفسارات والدعم والشراكات", priority: "0.6", changefreq: "monthly" },
 ];
 
 async function generateSitemapXml(hostUrl: string): Promise<string> {
@@ -47,8 +49,9 @@ async function generateSitemapXml(hostUrl: string): Promise<string> {
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
   xml += `<!-- ================================================================== -->\n`;
-  xml += `<!-- Site Name: ${escapeXml(SITE_NAME)} -->\n`;
-  xml += `<!-- Description: ${escapeXml(SITE_DESCRIPTION)} -->\n`;
+  xml += `<!-- Site Name: ${escapeXml(SITE_NAME)} | ${escapeXml(SITE_NAME_EN)} -->\n`;
+  xml += `<!-- Description (AR): ${escapeXml(SITE_DESCRIPTION)} -->\n`;
+  xml += `<!-- Description (EN): ${escapeXml(SITE_DESCRIPTION_EN)} -->\n`;
   xml += `<!-- Generated At: ${today} -->\n`;
   xml += `<!-- ================================================================== -->\n`;
   xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n`;
