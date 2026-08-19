@@ -18,11 +18,14 @@ const SITE_LOGO = "https://roayti.com/pwa-512x512.png";
 function escapeXml(unsafe: string | null | undefined): string {
   if (!unsafe) return "";
   return unsafe
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "") // remove XML control chars
+    .replace(/\r?\n|\r/g, " ") // replace newlines with space
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+    .replace(/'/g, "&apos;")
+    .trim();
 }
 
 const STATIC_SECTIONS = [
@@ -75,6 +78,7 @@ async function generateSitemapXml(hostUrl: string): Promise<string> {
     xml += `      <image:title>${escapeXml(page.title)}</image:title>\n`;
     xml += `      <image:caption>${escapeXml(page.description)}</image:caption>\n`;
     xml += `    </image:image>\n`;
+    xml += `  </url>\n`;
   }
 
   // 2. Published Novels ONLY (الروايات المنشورة فقط)
@@ -91,7 +95,8 @@ async function generateSitemapXml(hostUrl: string): Promise<string> {
         : today;
 
       const titleEsc = escapeXml(novel.title || "رواية");
-      const summaryEsc = escapeXml(novel.summary || `رواية ${novel.title} على منصة رويتي بالذكاء الاصطناعي | Novel ${novel.title} on Roayti`);
+      const rawSummary = novel.summary ? novel.summary.slice(0, 250) : `رواية ${novel.title} على منصة رويتي بالذكاء الاصطناعي`;
+      const summaryEsc = escapeXml(rawSummary);
       const coverImg = (novel.coverImage && novel.coverImage.startsWith("http")) 
         ? escapeXml(novel.coverImage) 
         : SITE_LOGO;
