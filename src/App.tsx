@@ -5290,7 +5290,7 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin }:
           <div className="flex gap-2">
             <input 
               type="password"
-              placeholder="ألصق مفتاح Gemini هنا (يبدأ بـ AIzaSy...)"
+              placeholder="ألصق مفتاح Gemini هنا (مثل AQ... أو AIzaSy...)"
               value={customAiKey}
               onChange={(e) => setCustomAiKey(e.target.value)}
               className="monochrome-input flex-grow text-xs font-mono bg-white"
@@ -5298,11 +5298,11 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin }:
             <button 
               onClick={() => {
                 const trimmedKey = customAiKey.trim();
-                if (trimmedKey && !trimmedKey.startsWith('AIzaSy')) {
-                  showToast(t('invalid_gemini_key_prefix', '⚠️ ملاحظة: مفتاح Google Gemini يجب أن يبدأ بـ AIzaSy... احصل عليه مجاناً من aistudio.google.com'), 'error');
+                if (trimmedKey && trimmedKey.length < 15) {
+                  showToast(t('invalid_gemini_key_len', '⚠️ يرجى التأكد من كتابة مفتاح Google Gemini بشكل صحيح'), 'error');
                 } else {
                   localStorage.setItem('custom_gemini_api_key', trimmedKey);
-                  showToast(t('key_saved_success', 'تم حفظ وتفعيل مفتاح الذكاء الاصطناعي المباشر بنجاح!'), 'success');
+                  showToast(t('key_saved_success', 'تم حفظ وتفعيل مفتاح الذكاء الاصطناعي بنجاح!'), 'success');
                 }
               }}
               className="monochrome-button px-5 py-2 text-xs whitespace-nowrap bg-black text-white"

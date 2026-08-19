@@ -27,33 +27,40 @@ router.post("/gemini/generate", async (req, res) => {
     return;
   }
 
-  try {
-    const ai = new GoogleGenAI({ apiKey: geminiKey });
-    const response = await ai.models.generateContent({
-      model,
-      contents,
-      config: {
-        safetySettings: [
-          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
-        ] as any,
-        ...config,
-      },
-    });
+  const candidateModels = [model, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"].filter((m, i, arr) => arr.indexOf(m) === i);
+  let lastError: any = null;
 
-    if (!response.text || !response.text.trim()) {
-      res.status(500).json({ error: "لم يتم استلام أي نص من نموذج Google Gemini." });
-      return;
+  for (const currentModel of candidateModels) {
+    try {
+      const ai = new GoogleGenAI({ apiKey: geminiKey });
+      const response = await ai.models.generateContent({
+        model: currentModel,
+        contents,
+        config: {
+          temperature: (config?.temperature as number) ?? 0.7,
+          maxOutputTokens: (config?.maxOutputTokens as number) ?? 8192,
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+          ] as any,
+          ...config,
+        },
+      });
+
+      if (response && response.text && response.text.trim()) {
+        return res.json({ text: response.text, candidates: response.candidates, modelUsed: currentModel });
+      }
+    } catch (err: any) {
+      lastError = err;
+      req.log.warn({ currentModel, err: err?.message }, "Model generation failed, attempting fallback");
     }
-
-    return res.json({ text: response.text, candidates: response.candidates });
-  } catch (err: any) {
-    req.log.error({ err }, "Google Gemini API error");
-    const errMsg = err?.message || String(err);
-    return res.status(500).json({ error: `فشل الاتصال بـ Google Gemini: ${errMsg}` });
   }
+
+  req.log.error({ err: lastError }, "Google Gemini API error on all models");
+  const errMsg = lastError?.message || String(lastError || "Unknown error");
+  return res.status(500).json({ error: `فشل الاتصال بـ Google Gemini: ${errMsg}` });
 });
 
 export default router;

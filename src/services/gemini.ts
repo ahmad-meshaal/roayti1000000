@@ -389,6 +389,30 @@ export const generateText = async (prompt: string, config?: any) => {
   }
 };
 
+export const generateStoryContent = async (promptText: string, config: any = { temperature: 0.7, maxOutputTokens: 8192 }) => {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: promptText }]
+        }
+      ],
+      config: {
+        temperature: 0.7,
+        maxOutputTokens: 8192,
+        ...config,
+      }
+    }, 'gemini');
+
+    return response.text;
+  } catch (error) {
+    console.error("خطأ في توليد النص:", error);
+    throw error;
+  }
+};
+
 export const moderateContent = async (content: string): Promise<{ isSafe: boolean; reason?: string }> => {
   try {
     const prompt = `You are a content moderator. Check if the following content is safe and appropriate for a creative writing platform.
