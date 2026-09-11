@@ -212,6 +212,16 @@ async function ensureDbReady() {
         activeDb = initPGlite();
       }
     }
+    try {
+      const q = isPg && pgPool ? await pgPool.query("SELECT COUNT(*)::int as count FROM novels") : client ? await client.query("SELECT COUNT(*)::int as count FROM novels") : null;
+      if (q && q.rows && q.rows[0] && (q.rows[0].count > 0 || q.rows[0].count === 0)) {
+        if (q.rows[0].count > 0) {
+          console.log(`Database is already populated with ${q.rows[0].count} novels. Skipping seed.`);
+          return;
+        }
+      }
+    } catch (_) {
+    }
     const currentDir = typeof __dirname !== "undefined" ? __dirname : import_meta.url ? import_path.default.dirname((0, import_url.fileURLToPath)(import_meta.url)) : process.cwd();
     const getSqlFilePath = (filename) => {
       const candidates = [
@@ -226,35 +236,6 @@ async function ensureDbReady() {
       }
       return null;
     };
-    if (isPg && pgPool) {
-      try {
-        const res = await pgPool.query(
-          "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users')"
-        );
-        if (res.rows[0]?.exists) {
-          console.log("PostgreSQL database tables already exist.");
-          try {
-            await pgPool.query("DELETE FROM comments WHERE author_uid LIKE '%_reader'");
-          } catch (_) {
-          }
-          return;
-        }
-        console.log("PostgreSQL database is empty. Starting automatic schema and data initialization...");
-      } catch (err) {
-        console.error("Error checking tables in PostgreSQL database:", err);
-      }
-    } else if (client) {
-      try {
-        const res = await client.query(
-          "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users')"
-        );
-        if (res.rows[0]?.exists) {
-          console.log("PGlite database tables already exist.");
-          return;
-        }
-      } catch (_) {
-      }
-    }
     const fullSqlPath = getSqlFilePath("roayti-FULL-DATABASE.sql");
     if (fullSqlPath) {
       console.log(`Creating database tables from ${fullSqlPath}...`);
@@ -279,17 +260,17 @@ async function ensureDbReady() {
         }
         console.log("PGlite schema created successfully.");
       }
-    } else {
-      console.warn("roayti-FULL-DATABASE.sql not found!");
     }
     const cleanSqlPath = getSqlFilePath("clean_inserts_perfect.sql");
     if (cleanSqlPath) {
       console.log(`Loading seed data from ${cleanSqlPath}...`);
       const cleanSql = import_fs.default.readFileSync(cleanSqlPath, "utf8");
-      const statements = cleanSql.split("-- STATEMENT_END --").map((s) => s.trim()).filter(Boolean);
+      const statements = cleanSql.split("-- STATEMENT_END --");
       let successCount = 0;
       let errorCount = 0;
-      for (const stmt of statements) {
+      for (let i = 0; i < statements.length; i++) {
+        const stmt = statements[i].trim();
+        if (!stmt) continue;
         try {
           if (isPg && pgPool) {
             await pgPool.query(stmt);
@@ -300,10 +281,11 @@ async function ensureDbReady() {
         } catch (err) {
           errorCount++;
         }
+        if (i % 20 === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+        }
       }
       console.log(`Database populated successfully! Success: ${successCount}, Errors: ${errorCount}`);
-    } else {
-      console.warn("clean_inserts_perfect.sql not found!");
     }
   })();
   return initPromise;

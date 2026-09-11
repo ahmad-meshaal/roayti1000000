@@ -82,6 +82,21 @@ export async function ensureDbReady() {
       }
     }
 
+    // Fast check: if novels table already exists and has records, skip initialization entirely!
+    try {
+      const q = isPg && pgPool 
+        ? await pgPool.query("SELECT COUNT(*)::int as count FROM novels")
+        : (client ? await client.query("SELECT COUNT(*)::int as count FROM novels") : null);
+      if (q && q.rows && q.rows[0] && (q.rows[0].count > 0 || q.rows[0].count === 0)) {
+        if (q.rows[0].count > 0) {
+          console.log(`Database is already populated with ${q.rows[0].count} novels. Skipping seed.`);
+          return;
+        }
+      }
+    } catch (_) {
+      // Table doesn't exist yet, proceed with DDL and seeding
+    }
+
     const currentDir = typeof __dirname !== "undefined" 
       ? __dirname 
       : (import.meta.url ? path.dirname(fileURLToPath(import.meta.url)) : process.cwd());
@@ -99,37 +114,6 @@ export async function ensureDbReady() {
       }
       return null;
     };
-
-    // Check if tables already exist
-    if (isPg && pgPool) {
-      try {
-        const res = await pgPool.query(
-          "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users')"
-        );
-        if (res.rows[0]?.exists) {
-          console.log("PostgreSQL database tables already exist.");
-          try {
-            await pgPool.query("DELETE FROM comments WHERE author_uid LIKE '%_reader'");
-          } catch (_) {}
-          return;
-        }
-        console.log("PostgreSQL database is empty. Starting automatic schema and data initialization...");
-      } catch (err) {
-        console.error("Error checking tables in PostgreSQL database:", err);
-      }
-    } else if (client) {
-      try {
-        const res = await client.query(
-          "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users')"
-        );
-        if (res.rows[0]?.exists) {
-          console.log("PGlite database tables already exist.");
-          return;
-        }
-      } catch (_) {
-        // Continue to create tables if check fails
-      }
-    }
 
     // 1. Create tables using DDL from roayti-FULL-DATABASE.sql
     const fullSqlPath = getSqlFilePath("roayti-FULL-DATABASE.sql");
@@ -161,20 +145,21 @@ export async function ensureDbReady() {
         }
         console.log("PGlite schema created successfully.");
       }
-    } else {
-      console.warn("roayti-FULL-DATABASE.sql not found!");
     }
 
-    // 2. Insert data from clean_inserts_perfect.sql
+    // 2. Insert data from clean_inserts_perfect.sql with memory-efficient batching
     const cleanSqlPath = getSqlFilePath("clean_inserts_perfect.sql");
     if (cleanSqlPath) {
       console.log(`Loading seed data from ${cleanSqlPath}...`);
       const cleanSql = fs.readFileSync(cleanSqlPath, "utf8");
-      const statements = cleanSql.split("-- STATEMENT_END --").map((s) => s.trim()).filter(Boolean);
+      const statements = cleanSql.split("-- STATEMENT_END --");
       let successCount = 0;
       let errorCount = 0;
 
-      for (const stmt of statements) {
+      for (let i = 0; i < statements.length; i++) {
+        const stmt = statements[i].trim();
+        if (!stmt) continue;
+
         try {
           if (isPg && pgPool) {
             await pgPool.query(stmt);
@@ -185,10 +170,13 @@ export async function ensureDbReady() {
         } catch (err) {
           errorCount++;
         }
+
+        // Yield event loop every 20 queries to prevent memory pressure
+        if (i % 20 === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+        }
       }
       console.log(`Database populated successfully! Success: ${successCount}, Errors: ${errorCount}`);
-    } else {
-      console.warn("clean_inserts_perfect.sql not found!");
     }
   })();
 
