@@ -206,7 +206,13 @@ async function ensureDbReady() {
         console.log("PostgreSQL connection confirmed healthy.");
       } catch (connErr) {
         console.warn("PostgreSQL connection failed (" + (connErr?.message || connErr) + ").");
-        console.warn("Gracefully falling back to embedded PGlite database to keep the site online.");
+        console.warn("Gracefully shutting down dead PostgreSQL pool and switching to PGlite.");
+        try {
+          pgPool.end().catch(() => {
+          });
+        } catch (_) {
+        }
+        pgPool = null;
         isPg = false;
         usePg = false;
         activeDb = initPGlite();
@@ -303,6 +309,12 @@ var init_src = __esm({
     import_url = require("url");
     init_schema();
     import_meta = {};
+    process.on("unhandledRejection", (reason) => {
+      console.warn("Unhandled rejection absorbed:", reason);
+    });
+    process.on("uncaughtException", (err) => {
+      console.warn("Uncaught exception absorbed:", err);
+    });
     client = null;
     pgPool = null;
     activeDb = null;
@@ -313,14 +325,17 @@ var init_src = __esm({
         pgPool = new import_pg.default.Pool({
           connectionString: dbUrl,
           ssl: { rejectUnauthorized: false },
-          connectionTimeoutMillis: 5e3
+          connectionTimeoutMillis: 4e3
+        });
+        pgPool.on("error", (err) => {
+          console.warn("PostgreSQL pool background error handled:", err?.message || err);
         });
         pgPool.on("connect", (client2) => {
           client2.query('SET search_path TO public, "$user"');
         });
         activeDb = (0, import_node_postgres.drizzle)(pgPool, { schema: schema_exports });
         usePg = true;
-        console.log("Configured PostgreSQL connection pool with timeout.");
+        console.log("Configured PostgreSQL connection pool with error handler.");
       } catch (err) {
         console.error("Failed to create PostgreSQL pool, falling back to PGlite:", err);
         activeDb = initPGlite();

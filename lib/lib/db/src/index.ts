@@ -7,6 +7,14 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 
+// Prevent unhandled errors from terminating the Node process
+process.on('unhandledRejection', (reason) => {
+  console.warn('Unhandled rejection absorbed:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.warn('Uncaught exception absorbed:', err);
+});
+
 let client: PGlite | null = null;
 let pgPool: pg.Pool | null = null;
 let activeDb: any = null;
@@ -33,14 +41,18 @@ if (dbUrl) {
     pgPool = new pg.Pool({
       connectionString: dbUrl,
       ssl: { rejectUnauthorized: false },
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 4000,
+    });
+    // Critical: handle pool errors so Node.js never crashes on unhandled 'error' event
+    pgPool.on('error', (err) => {
+      console.warn("PostgreSQL pool background error handled:", err?.message || err);
     });
     pgPool.on('connect', (client) => {
       client.query('SET search_path TO public, "$user"');
     });
     activeDb = drizzlePg(pgPool, { schema });
     usePg = true;
-    console.log("Configured PostgreSQL connection pool with timeout.");
+    console.log("Configured PostgreSQL connection pool with error handler.");
   } catch (err) {
     console.error("Failed to create PostgreSQL pool, falling back to PGlite:", err);
     activeDb = initPGlite();
@@ -75,7 +87,11 @@ export async function ensureDbReady() {
         console.log("PostgreSQL connection confirmed healthy.");
       } catch (connErr: any) {
         console.warn("PostgreSQL connection failed (" + (connErr?.message || connErr) + ").");
-        console.warn("Gracefully falling back to embedded PGlite database to keep the site online.");
+        console.warn("Gracefully shutting down dead PostgreSQL pool and switching to PGlite.");
+        try {
+          pgPool.end().catch(() => {});
+        } catch (_) {}
+        pgPool = null;
         isPg = false;
         usePg = false;
         activeDb = initPGlite();
@@ -171,7 +187,6 @@ export async function ensureDbReady() {
           errorCount++;
         }
 
-        // Yield event loop every 20 queries to prevent memory pressure
         if (i % 20 === 0) {
           await new Promise((resolve) => setTimeout(resolve, 5));
         }
