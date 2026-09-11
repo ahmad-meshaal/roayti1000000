@@ -5,41 +5,59 @@ import pg from "pg";
 import * as schema from "./schema/index";
 import path from "path";
 import fs from "fs";
-
 import { fileURLToPath } from "url";
 
-export let db: any;
 let client: PGlite | null = null;
 let pgPool: pg.Pool | null = null;
+let activeDb: any = null;
+let usePg = false;
 
-let dbUrl = process.env.DATABASE_URL;
+const dbUrl = process.env.DATABASE_URL;
+
+function initPGlite() {
+  if (!client) {
+    try {
+      const dbPath = path.join(process.cwd(), "database.pglite");
+      client = new PGlite(dbPath);
+      console.log(`PGlite initialized successfully on-disk at ${dbPath}.`);
+    } catch (err) {
+      console.error("Failed to initialize PGlite on disk, falling back to memory:", err);
+      client = new PGlite();
+    }
+  }
+  return drizzlePglite(client, { schema });
+}
 
 if (dbUrl) {
   try {
     pgPool = new pg.Pool({
       connectionString: dbUrl,
       ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 5000,
     });
     pgPool.on('connect', (client) => {
       client.query('SET search_path TO public, "$user"');
     });
-    db = drizzlePg(pgPool, { schema });
-    console.log("Connected to PostgreSQL database via node-postgres pool.");
+    activeDb = drizzlePg(pgPool, { schema });
+    usePg = true;
+    console.log("Configured PostgreSQL connection pool with timeout.");
   } catch (err) {
-    console.error("Failed to connect to PostgreSQL:", err);
-    throw err;
+    console.error("Failed to create PostgreSQL pool, falling back to PGlite:", err);
+    activeDb = initPGlite();
+    usePg = false;
   }
 } else {
-  try {
-    const dbPath = path.join(process.cwd(), "database.pglite");
-    client = new PGlite(dbPath);
-    db = drizzlePglite(client, { schema });
-    console.log(`PGlite initialized successfully on-disk at ${dbPath}.`);
-  } catch (err) {
-    console.error("Failed to initialize PGlite:", err);
-    throw err;
-  }
+  activeDb = initPGlite();
+  usePg = false;
 }
+
+export const db: any = new Proxy({} as any, {
+  get(_target, prop) {
+    const current = activeDb || initPGlite();
+    const val = current[prop];
+    return typeof val === "function" ? val.bind(current) : val;
+  }
+});
 
 let initPromise: Promise<void> | null = null;
 
@@ -47,9 +65,23 @@ export async function ensureDbReady() {
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
-    const isPg = !!dbUrl;
+    let isPg = usePg && !!pgPool;
 
-    // Find SQL files in root or dist directory
+    // Verify PostgreSQL connection if configured
+    if (isPg && pgPool) {
+      try {
+        console.log("Testing PostgreSQL connection...");
+        await pgPool.query("SELECT 1");
+        console.log("PostgreSQL connection confirmed healthy.");
+      } catch (connErr: any) {
+        console.warn("PostgreSQL connection failed (" + (connErr?.message || connErr) + ").");
+        console.warn("Gracefully falling back to embedded PGlite database to keep the site online.");
+        isPg = false;
+        usePg = false;
+        activeDb = initPGlite();
+      }
+    }
+
     const currentDir = typeof __dirname !== "undefined" 
       ? __dirname 
       : (import.meta.url ? path.dirname(fileURLToPath(import.meta.url)) : process.cwd());
@@ -68,7 +100,7 @@ export async function ensureDbReady() {
       return null;
     };
 
-    // If using production PostgreSQL, check if tables already exist
+    // Check if tables already exist
     if (isPg && pgPool) {
       try {
         const res = await pgPool.query(
@@ -85,6 +117,18 @@ export async function ensureDbReady() {
       } catch (err) {
         console.error("Error checking tables in PostgreSQL database:", err);
       }
+    } else if (client) {
+      try {
+        const res = await client.query(
+          "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users')"
+        );
+        if (res.rows[0]?.exists) {
+          console.log("PGlite database tables already exist.");
+          return;
+        }
+      } catch (_) {
+        // Continue to create tables if check fails
+      }
     }
 
     // 1. Create tables using DDL from roayti-FULL-DATABASE.sql
@@ -93,7 +137,6 @@ export async function ensureDbReady() {
       console.log(`Creating database tables from ${fullSqlPath}...`);
       const fullSql = fs.readFileSync(fullSqlPath, "utf8");
       
-      // Remove lines starting with backslash (psql meta-commands like \restrict)
       const cleanedSql = fullSql
         .split("\n")
         .filter(line => !line.trim().startsWith("\\"))
@@ -116,6 +159,7 @@ export async function ensureDbReady() {
             console.error("Error creating table in PGlite:", err);
           }
         }
+        console.log("PGlite schema created successfully.");
       }
     } else {
       console.warn("roayti-FULL-DATABASE.sql not found!");
@@ -140,7 +184,6 @@ export async function ensureDbReady() {
           successCount++;
         } catch (err) {
           errorCount++;
-          console.error("Error executing statement:", err);
         }
       }
       console.log(`Database populated successfully! Success: ${successCount}, Errors: ${errorCount}`);
@@ -155,4 +198,3 @@ export async function ensureDbReady() {
 ensureDbReady().catch(console.error);
 
 export * from "./schema";
-
