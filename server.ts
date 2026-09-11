@@ -73,7 +73,8 @@ async function startServer() {
   app.use(apiApp);
 
   // Vite middleware for development vs Production Static & Dynamic Meta Serving
-  if (process.env.NODE_ENV !== "production") {
+  const isProduction = process.env.NODE_ENV === "production" || fs.existsSync(path.join(process.cwd(), "dist", "index.html"));
+  if (!isProduction) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

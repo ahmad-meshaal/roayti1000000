@@ -1608,7 +1608,8 @@ Sitemap: ${proto}://${host}/sitemap.xml
     res.send(robotsTxt);
   });
   app2.use(app_default);
-  if (process.env.NODE_ENV !== "production") {
+  const isProduction = process.env.NODE_ENV === "production" || import_fs2.default.existsSync(import_path2.default.join(process.cwd(), "dist", "index.html"));
+  if (!isProduction) {
     const vite = await (0, import_vite.createServer)({
       server: { middlewareMode: true },
       appType: "spa"
