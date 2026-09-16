@@ -187,7 +187,7 @@ import {
   Send,
   Upload,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from './lib/motion';
 import Markdown from 'react-markdown';
 import { useTranslation } from 'react-i18next';
 import { jsPDF } from 'jspdf';
