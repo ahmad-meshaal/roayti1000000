@@ -2672,10 +2672,11 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
                     bannerURL: bannerURL || '',
                   };
 
-                  await api.updateUser(effectiveUserId!, updateData);
-                  setUserProfile(prev => prev ? { ...prev, ...updateData } : prev);
+                  const updatedUser = await api.updateUser(effectiveUserId!, updateData);
+                  setUserProfile(prev => prev ? { ...prev, ...updateData, ...(updatedUser || {}) } : prev);
                 } catch (e: any) {
-                  showToast('فشل في تحديث الملف الشخصي: ' + e.message, 'error');
+                  showToast('فشل في تحديث الملف الشخصي: ' + (e.message || e), 'error');
+                  throw e;
                 }
               }}
               showToast={showToast}
@@ -5012,6 +5013,12 @@ const Editor = ({ novel, chapter, onBack, showToast, setConfirmModal, userProfil
 const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin }: { profile: UserProfile, onUpdateProfile: (data: any) => Promise<void>, showToast: (msg: string, type?: 'success' | 'error') => void, setView: (v: any) => void, isAdmin: boolean }) => {
   const { t, i18n } = useTranslation();
   const [displayName, setDisplayName] = useState(profile.displayName || '');
+  const [username, setUsername] = useState(profile.username || '');
+  const [usernameStatus, setUsernameStatus] = useState<{
+    checking: boolean;
+    available?: boolean;
+    message?: string;
+  }>({ checking: false });
   const [photoURL, setPhotoURL] = useState(profile.photoURL || '');
   const [bannerURL, setBannerURL] = useState((profile as any).bannerURL || '');
   const [bio, setBio] = useState(profile.bio || '');
@@ -5022,13 +5029,65 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin }:
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  useEffect(() => {
+    const trimmed = username.trim().toLowerCase();
+    if (!trimmed) {
+      setUsernameStatus({ checking: false, available: undefined, message: '' });
+      return;
+    }
+
+    if (trimmed === (profile.username || '').toLowerCase()) {
+      setUsernameStatus({ checking: false, available: true, message: 'اسم المستخدم الحالي' });
+      return;
+    }
+
+    if (trimmed.length < 3 || trimmed.length > 30) {
+      setUsernameStatus({ checking: false, available: false, message: 'يجب أن يكون بين 3 و 30 حرفاً' });
+      return;
+    }
+
+    if (!/^[a-z0-9_]+$/.test(trimmed)) {
+      setUsernameStatus({ checking: false, available: false, message: 'أحرف إنجليزية وأرقام و (_) فقط' });
+      return;
+    }
+
+    setUsernameStatus({ checking: true });
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.checkUsername(trimmed, profile.uid);
+        setUsernameStatus({ checking: false, available: res.available, message: res.message });
+      } catch {
+        setUsernameStatus({ checking: false, available: undefined, message: '' });
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [username, profile.username, profile.uid]);
+
   const handleSave = async () => {
+    const cleanUsername = username.trim().toLowerCase();
+    if (cleanUsername && cleanUsername !== (profile.username || '').toLowerCase()) {
+      if (cleanUsername.length < 3 || cleanUsername.length > 30) {
+        showToast('اسم المستخدم يجب أن يتكون من 3 إلى 30 حرفاً', 'error');
+        return;
+      }
+      if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
+        showToast('اسم المستخدم يجب أن يحتوي فقط على أحرف إنجليزية وأرقام وشرطة سفلية (_)', 'error');
+        return;
+      }
+      if (usernameStatus.available === false) {
+        showToast(usernameStatus.message || 'اسم المستخدم هذا محجوز بالفعل', 'error');
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       await onUpdateProfile({ 
         uid: profile.uid,
         email: profile.email,
         displayName, 
+        username: cleanUsername,
         photoURL,
         bannerURL,
         bio,
@@ -5042,13 +5101,11 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin }:
     } catch (e: any) {
       console.error("Save error:", e);
       const errorMsg = e instanceof Error ? e.message : String(e);
-      let displayError = t('error_updating_profile', 'حدث خطأ أثناء تحديث الملف الشخصي');
+      let displayError = errorMsg;
       try {
         const parsed = JSON.parse(errorMsg);
-        if (parsed.error) displayError += `: ${parsed.error}`;
-      } catch {
-        displayError += `: ${errorMsg}`;
-      }
+        if (parsed.error) displayError = parsed.error;
+      } catch {}
       showToast(displayError, 'error');
     }
     setSaving(false);
@@ -5245,6 +5302,46 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin }:
                 <p className="text-center text-[10px] opacity-30 italic py-4">{t('no_links_added', 'لا يوجد روابط مضافة')}</p>
               )}
             </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold uppercase tracking-widest opacity-50">{t('username_label', 'اسم المستخدم (@username)')}</label>
+              {usernameStatus.checking ? (
+                <span className="text-[10px] text-amber-600 font-medium flex items-center gap-1">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                  جاري التحقق...
+                </span>
+              ) : usernameStatus.available === true ? (
+                <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
+                  ✓ {usernameStatus.message || 'اسم المستخدم متاح'}
+                </span>
+              ) : usernameStatus.available === false ? (
+                <span className="text-[10px] text-red-500 font-medium flex items-center gap-1">
+                  ✕ {usernameStatus.message || 'غير متاح'}
+                </span>
+              ) : null}
+            </div>
+            <div className="relative flex items-center">
+              <span className="absolute left-3 text-sm font-semibold opacity-40 select-none">@</span>
+              <input 
+                type="text" 
+                value={username}
+                onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                placeholder="username"
+                dir="ltr"
+                className={`w-full border-b py-2 pl-8 pr-3 outline-none font-mono text-sm transition-colors ${
+                  usernameStatus.available === true
+                    ? 'border-emerald-500 focus:border-emerald-600'
+                    : usernameStatus.available === false
+                    ? 'border-red-500 focus:border-red-600'
+                    : 'border-black/10 focus:border-black'
+                }`}
+              />
+            </div>
+            <p className="mt-1 text-[10px] text-black/40">
+              {t('username_hint', 'معرف فريد لحسابك لا يتكرر مع أي حساب آخر (أحرف إنجليزية، أرقام، و _ فقط وبطول 3-30 حرفاً).')}
+            </p>
           </div>
 
           <div>

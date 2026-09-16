@@ -19,6 +19,8 @@ export const getUserByUsername = (username: string) => req<any>(`/users/by-usern
 export const getUsers = (q?: string) => req<any[]>(`/users${q ? `?q=${encodeURIComponent(q)}` : ''}`);
 export const upsertUser = (data: any) => req<any>('/users', { method: 'POST', body: JSON.stringify(data) });
 export const updateUser = (uid: string, data: any) => req<any>(`/users/${uid}`, { method: 'PUT', body: JSON.stringify(data) });
+export const checkUsername = (username: string, currentUid?: string) =>
+  req<{ available: boolean; message: string }>(`/users/check-username/${encodeURIComponent(username)}${currentUid ? `?currentUid=${encodeURIComponent(currentUid)}` : ''}`);
 export const getUserStats = (uid: string) => req<any>(`/users/${uid}/stats`);
 
 // ─── Novels ──────────────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ export interface ExternalLink {
 export interface UserProfile {
   uid: string;
   displayName: string;
+  username?: string;
   email: string;
   photoURL?: string;
   bannerURL?: string;

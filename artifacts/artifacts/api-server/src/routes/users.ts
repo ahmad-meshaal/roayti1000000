@@ -69,12 +69,73 @@ router.post('/users', async (req, res) => {
   }
 });
 
+router.get('/users/check-username/:username', async (req, res) => {
+  try {
+    const { username } = req.params;
+    const { currentUid } = req.query as { currentUid?: string };
+    const cleanUsername = String(username).trim().toLowerCase();
+
+    if (cleanUsername.length < 3 || cleanUsername.length > 30) {
+      return res.json({ available: false, message: 'اسم المستخدم يجب أن يتكون من 3 إلى 30 حرفاً' });
+    }
+    if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
+      return res.json({ available: false, message: 'يسمح فقط بالأحرف الإنجليزية والأرقام والشرطة السفلية (_)' });
+    }
+
+    const existing = await db
+      .select()
+      .from(usersTable)
+      .where(ilike(usersTable.username!, cleanUsername))
+      .limit(1);
+
+    if (existing.length > 0 && existing[0].uid !== currentUid) {
+      return res.json({ available: false, message: 'اسم المستخدم هذا محجوز ومستخدم بالفعل' });
+    }
+
+    return res.json({ available: true, message: 'اسم المستخدم متاح' });
+  } catch (e: any) {
+    req.log.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.put('/users/:uid', async (req, res) => {
   try {
     const { uid } = req.params;
     const data = { ...req.body };
     delete data.uid;
     delete data.createdAt;
+
+    // Handle username update if provided
+    if (data.username !== undefined && data.username !== null) {
+      const cleanUsername = String(data.username).trim().toLowerCase();
+      if (cleanUsername.length < 3 || cleanUsername.length > 30) {
+        return res.status(400).json({
+          error: 'اسم المستخدم يجب أن يتكون من 3 إلى 30 حرفاً'
+        });
+      }
+      if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
+        return res.status(400).json({
+          error: 'اسم المستخدم يجب أن يحتوي فقط على أحرف إنجليزية صغيرة، أرقام، أو شرطة سفلية (_)'
+        });
+      }
+
+      // Check if another user already has this username
+      const existingUser = await db
+        .select()
+        .from(usersTable)
+        .where(ilike(usersTable.username!, cleanUsername))
+        .limit(1);
+
+      if (existingUser.length > 0 && existingUser[0].uid !== uid) {
+        return res.status(409).json({
+          error: 'اسم المستخدم هذا محجوز ومستخدم بالفعل من قبل حساب آخر. يرجى اختيار اسم مستخدم مختلف.'
+        });
+      }
+
+      data.username = cleanUsername;
+    }
+
     const rows = await db.update(usersTable)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(usersTable.uid, uid))
@@ -83,6 +144,9 @@ router.put('/users/:uid', async (req, res) => {
     res.json(rows[0]);
   } catch (e: any) {
     req.log.error(e);
+    if (e.code === '23505' || e.message?.includes('users_username_unique')) {
+      return res.status(409).json({ error: 'اسم المستخدم هذا محجوز ومستخدم بالفعل من قبل حساب آخر.' });
+    }
     res.status(500).json({ error: e.message });
   }
 });

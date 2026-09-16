@@ -968,17 +968,61 @@ router4.post("/users", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+router4.get("/users/check-username/:username", async (req, res) => {
+  try {
+    const { username } = req.params;
+    const { currentUid } = req.query;
+    const cleanUsername = String(username).trim().toLowerCase();
+    if (cleanUsername.length < 3 || cleanUsername.length > 30) {
+      return res.json({ available: false, message: "\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u064A\u062C\u0628 \u0623\u0646 \u064A\u062A\u0643\u0648\u0646 \u0645\u0646 3 \u0625\u0644\u0649 30 \u062D\u0631\u0641\u0627\u064B" });
+    }
+    if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
+      return res.json({ available: false, message: "\u064A\u0633\u0645\u062D \u0641\u0642\u0637 \u0628\u0627\u0644\u0623\u062D\u0631\u0641 \u0627\u0644\u0625\u0646\u062C\u0644\u064A\u0632\u064A\u0629 \u0648\u0627\u0644\u0623\u0631\u0642\u0627\u0645 \u0648\u0627\u0644\u0634\u0631\u0637\u0629 \u0627\u0644\u0633\u0641\u0644\u064A\u0629 (_)" });
+    }
+    const existing = await db.select().from(usersTable).where((0, import_drizzle_orm.ilike)(usersTable.username, cleanUsername)).limit(1);
+    if (existing.length > 0 && existing[0].uid !== currentUid) {
+      return res.json({ available: false, message: "\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0647\u0630\u0627 \u0645\u062D\u062C\u0648\u0632 \u0648\u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0627\u0644\u0641\u0639\u0644" });
+    }
+    return res.json({ available: true, message: "\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0645\u062A\u0627\u062D" });
+  } catch (e) {
+    req.log.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
 router4.put("/users/:uid", async (req, res) => {
   try {
     const { uid } = req.params;
     const data = { ...req.body };
     delete data.uid;
     delete data.createdAt;
+    if (data.username !== void 0 && data.username !== null) {
+      const cleanUsername = String(data.username).trim().toLowerCase();
+      if (cleanUsername.length < 3 || cleanUsername.length > 30) {
+        return res.status(400).json({
+          error: "\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u064A\u062C\u0628 \u0623\u0646 \u064A\u062A\u0643\u0648\u0646 \u0645\u0646 3 \u0625\u0644\u0649 30 \u062D\u0631\u0641\u0627\u064B"
+        });
+      }
+      if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
+        return res.status(400).json({
+          error: "\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u064A\u062C\u0628 \u0623\u0646 \u064A\u062D\u062A\u0648\u064A \u0641\u0642\u0637 \u0639\u0644\u0649 \u0623\u062D\u0631\u0641 \u0625\u0646\u062C\u0644\u064A\u0632\u064A\u0629 \u0635\u063A\u064A\u0631\u0629\u060C \u0623\u0631\u0642\u0627\u0645\u060C \u0623\u0648 \u0634\u0631\u0637\u0629 \u0633\u0641\u0644\u064A\u0629 (_)"
+        });
+      }
+      const existingUser = await db.select().from(usersTable).where((0, import_drizzle_orm.ilike)(usersTable.username, cleanUsername)).limit(1);
+      if (existingUser.length > 0 && existingUser[0].uid !== uid) {
+        return res.status(409).json({
+          error: "\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0647\u0630\u0627 \u0645\u062D\u062C\u0648\u0632 \u0648\u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0627\u0644\u0641\u0639\u0644 \u0645\u0646 \u0642\u0628\u0644 \u062D\u0633\u0627\u0628 \u0622\u062E\u0631. \u064A\u0631\u062C\u0649 \u0627\u062E\u062A\u064A\u0627\u0631 \u0627\u0633\u0645 \u0645\u0633\u062A\u062E\u062F\u0645 \u0645\u062E\u062A\u0644\u0641."
+        });
+      }
+      data.username = cleanUsername;
+    }
     const rows = await db.update(usersTable).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where((0, import_drizzle_orm.eq)(usersTable.uid, uid)).returning();
     if (!rows.length) return res.status(404).json({ error: "User not found" });
     res.json(rows[0]);
   } catch (e) {
     req.log.error(e);
+    if (e.code === "23505" || e.message?.includes("users_username_unique")) {
+      return res.status(409).json({ error: "\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0647\u0630\u0627 \u0645\u062D\u062C\u0648\u0632 \u0648\u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0627\u0644\u0641\u0639\u0644 \u0645\u0646 \u0642\u0628\u0644 \u062D\u0633\u0627\u0628 \u0622\u062E\u0631." });
+    }
     res.status(500).json({ error: e.message });
   }
 });

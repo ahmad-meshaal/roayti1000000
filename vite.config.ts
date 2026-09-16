@@ -12,6 +12,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "src"),
       "@assets": path.resolve(__dirname, "attached_assets"),
+      "motion/react": path.resolve(__dirname, "node_modules/motion/dist/cjs/react.js"),
     },
   },
   server: {
