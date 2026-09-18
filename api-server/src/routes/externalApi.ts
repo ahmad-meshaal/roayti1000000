@@ -16,34 +16,91 @@ async function authenticateAuthor(req: Request) {
   }
 
   if (!token) {
-    token = (req.headers['x-api-key'] as string) || (req.headers['x-user-id'] as string) || '';
+    token = (req.headers['x-api-key'] as string) || (req.headers['x-user-id'] as string) || (req.headers['x-author-email'] as string) || '';
   }
 
   if (!token && req.body) {
-    token = req.body.apiKey || req.body.userUid || req.body.authorUid || '';
+    token = req.body.apiKey || req.body.userUid || req.body.authorUid || req.body.email || req.body.authorEmail || req.body.userEmail || (req.body.author && (req.body.author.email || req.body.author.uid || req.body.author.username)) || '';
   }
 
   if (!token && req.query) {
-    token = (req.query.apiKey as string) || (req.query.userUid as string) || '';
+    token = (req.query.apiKey as string) || (req.query.userUid as string) || (req.query.email as string) || '';
   }
 
   if (!token) {
     return null;
   }
 
-  // Check by exact UID in users table
+  // 1. Check by exact UID in users table
   let user = await db.select().from(usersTable).where(eq(usersTable.uid, token)).limit(1);
 
-  // If not found, check if token matches username or email
+  // 2. If not found, check if token matches email
   if (!user.length) {
     user = await db.select().from(usersTable).where(eq(usersTable.email, token.toLowerCase())).limit(1);
   }
+
+  // 3. If not found, check if token matches username
   if (!user.length) {
     user = await db.select().from(usersTable).where(eq(usersTable.username, token.toLowerCase())).limit(1);
   }
 
+  // 4. If still not found and token is an email, auto-create author profile so novel is immediately linked
+  if (!user.length && token.includes('@')) {
+    const newUid = 'user_' + crypto.randomUUID().replace(/-/g, '').substring(0, 24);
+    const authorName = (req.body && (req.body.authorName || (req.body.author && req.body.author.displayName))) || token.split('@')[0];
+    const username = 'writer_' + crypto.randomBytes(3).toString('hex');
+    const created = await db.insert(usersTable).values({
+      uid: newUid,
+      email: token.toLowerCase(),
+      displayName: authorName,
+      username,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return created[0];
+  }
+
   return user.length ? user[0] : null;
 }
+
+/**
+ * POST /api/external/auth/login
+ * Allows external novel-writing website to authenticate/identify an author by email or username
+ */
+router.post('/external/auth/login', async (req: Request, res: Response) => {
+  try {
+    const author = await authenticateAuthor(req);
+    if (!author) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation Error',
+        message: 'يرجى إرسال البريد الإلكتروني أو اسم المستخدم أو معرف الكاتب.',
+      });
+    }
+
+    const novelsCount = await db
+      .select()
+      .from(novelsTable)
+      .where(eq(novelsTable.authorUid, author.uid));
+
+    res.json({
+      success: true,
+      message: `تم التحقق بنجاح! مرحباً بك يا ${author.displayName}`,
+      token: author.uid,
+      author: {
+        uid: author.uid,
+        displayName: author.displayName,
+        username: author.username,
+        email: author.email,
+        photoURL: author.photoURL,
+        novelsCount: novelsCount.length,
+      },
+    });
+  } catch (e: any) {
+    req.log?.error?.(e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
 
 /**
  * POST /api/external/auth/verify

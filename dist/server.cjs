@@ -1559,13 +1559,13 @@ async function authenticateAuthor(req) {
     token = authHeader.substring(7).trim();
   }
   if (!token) {
-    token = req.headers["x-api-key"] || req.headers["x-user-id"] || "";
+    token = req.headers["x-api-key"] || req.headers["x-user-id"] || req.headers["x-author-email"] || "";
   }
   if (!token && req.body) {
-    token = req.body.apiKey || req.body.userUid || req.body.authorUid || "";
+    token = req.body.apiKey || req.body.userUid || req.body.authorUid || req.body.email || req.body.authorEmail || req.body.userEmail || req.body.author && (req.body.author.email || req.body.author.uid || req.body.author.username) || "";
   }
   if (!token && req.query) {
-    token = req.query.apiKey || req.query.userUid || "";
+    token = req.query.apiKey || req.query.userUid || req.query.email || "";
   }
   if (!token) {
     return null;
@@ -1577,8 +1577,51 @@ async function authenticateAuthor(req) {
   if (!user.length) {
     user = await db.select().from(usersTable).where((0, import_drizzle_orm10.eq)(usersTable.username, token.toLowerCase())).limit(1);
   }
+  if (!user.length && token.includes("@")) {
+    const newUid = "user_" + import_crypto.default.randomUUID().replace(/-/g, "").substring(0, 24);
+    const authorName = req.body && (req.body.authorName || req.body.author && req.body.author.displayName) || token.split("@")[0];
+    const username = "writer_" + import_crypto.default.randomBytes(3).toString("hex");
+    const created = await db.insert(usersTable).values({
+      uid: newUid,
+      email: token.toLowerCase(),
+      displayName: authorName,
+      username,
+      createdAt: /* @__PURE__ */ new Date(),
+      updatedAt: /* @__PURE__ */ new Date()
+    }).returning();
+    return created[0];
+  }
   return user.length ? user[0] : null;
 }
+router13.post("/external/auth/login", async (req, res) => {
+  try {
+    const author = await authenticateAuthor(req);
+    if (!author) {
+      return res.status(400).json({
+        success: false,
+        error: "Validation Error",
+        message: "\u064A\u0631\u062C\u0649 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0623\u0648 \u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0623\u0648 \u0645\u0639\u0631\u0641 \u0627\u0644\u0643\u0627\u062A\u0628."
+      });
+    }
+    const novelsCount = await db.select().from(novelsTable).where((0, import_drizzle_orm10.eq)(novelsTable.authorUid, author.uid));
+    res.json({
+      success: true,
+      message: `\u062A\u0645 \u0627\u0644\u062A\u062D\u0642\u0642 \u0628\u0646\u062C\u0627\u062D! \u0645\u0631\u062D\u0628\u0627\u064B \u0628\u0643 \u064A\u0627 ${author.displayName}`,
+      token: author.uid,
+      author: {
+        uid: author.uid,
+        displayName: author.displayName,
+        username: author.username,
+        email: author.email,
+        photoURL: author.photoURL,
+        novelsCount: novelsCount.length
+      }
+    });
+  } catch (e) {
+    req.log?.error?.(e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
 router13.post("/external/auth/verify", async (req, res) => {
   try {
     const author = await authenticateAuthor(req);
