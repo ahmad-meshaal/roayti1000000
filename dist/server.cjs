@@ -12,11 +12,11 @@ var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-var __copyProps = (to, from, except, desc4) => {
+var __copyProps = (to, from, except, desc5) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc4 = __getOwnPropDesc(from, key)) || desc4.enumerable });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc5 = __getOwnPropDesc(from, key)) || desc5.enumerable });
   }
   return to;
 };
@@ -733,18 +733,18 @@ var init_sitemap = __esm({
 });
 
 // server.ts
-var import_express15 = __toESM(require("express"), 1);
+var import_express16 = __toESM(require("express"), 1);
 var import_path2 = __toESM(require("path"), 1);
 var import_fs2 = __toESM(require("fs"), 1);
 var import_vite = require("vite");
 
 // api-server/src/app.ts
-var import_express14 = __toESM(require("express"), 1);
+var import_express15 = __toESM(require("express"), 1);
 var import_cors = __toESM(require("cors"), 1);
 var import_pino_http = __toESM(require("pino-http"), 1);
 
 // api-server/src/routes/index.ts
-var import_express13 = require("express");
+var import_express14 = require("express");
 
 // api-server/src/routes/health.ts
 var import_express = require("express");
@@ -1544,20 +1544,267 @@ var characters_default = router11;
 
 // api-server/src/routes/index.ts
 init_sitemap();
+
+// api-server/src/routes/externalApi.ts
+var import_express13 = require("express");
+init_src();
+init_schema();
+var import_drizzle_orm10 = require("drizzle-orm");
+var import_crypto = __toESM(require("crypto"), 1);
 var router13 = (0, import_express13.Router)();
-router13.use(health_default);
-router13.use(gemini_default);
-router13.use(upload_default);
-router13.use(users_default);
-router13.use(novels_default);
-router13.use(chapters_default);
-router13.use(follows_default);
-router13.use(library_default);
-router13.use(progress_default);
-router13.use(comments_default);
-router13.use(characters_default);
-router13.use(sitemap_default);
-var routes_default = router13;
+async function authenticateAuthor(req) {
+  let token = "";
+  const authHeader = req.headers["authorization"];
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.substring(7).trim();
+  }
+  if (!token) {
+    token = req.headers["x-api-key"] || req.headers["x-user-id"] || "";
+  }
+  if (!token && req.body) {
+    token = req.body.apiKey || req.body.userUid || req.body.authorUid || "";
+  }
+  if (!token && req.query) {
+    token = req.query.apiKey || req.query.userUid || "";
+  }
+  if (!token) {
+    return null;
+  }
+  let user = await db.select().from(usersTable).where((0, import_drizzle_orm10.eq)(usersTable.uid, token)).limit(1);
+  if (!user.length) {
+    user = await db.select().from(usersTable).where((0, import_drizzle_orm10.eq)(usersTable.email, token.toLowerCase())).limit(1);
+  }
+  if (!user.length) {
+    user = await db.select().from(usersTable).where((0, import_drizzle_orm10.eq)(usersTable.username, token.toLowerCase())).limit(1);
+  }
+  return user.length ? user[0] : null;
+}
+router13.post("/external/auth/verify", async (req, res) => {
+  try {
+    const author = await authenticateAuthor(req);
+    if (!author) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+        message: "\u0645\u0641\u062A\u0627\u062D \u0627\u0644\u0640 API \u0623\u0648 \u0645\u0639\u0631\u0651\u0641 \u0627\u0644\u0643\u0627\u062A\u0628 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D \u0623\u0648 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F. \u064A\u0631\u062C\u0649 \u062A\u0632\u0648\u064A\u062F \u0645\u0639\u0631\u0651\u0641 \u0627\u0644\u0643\u0627\u062A\u0628 \u0627\u0644\u0635\u062D\u064A\u062D."
+      });
+    }
+    const novelsCount = await db.select().from(novelsTable).where((0, import_drizzle_orm10.eq)(novelsTable.authorUid, author.uid));
+    res.json({
+      success: true,
+      message: `\u0645\u0631\u062D\u0628\u0627\u064B \u0628\u0643\u060C ${author.displayName}`,
+      author: {
+        uid: author.uid,
+        displayName: author.displayName,
+        username: author.username,
+        email: author.email,
+        photoURL: author.photoURL,
+        role: author.role,
+        novelsCount: novelsCount.length
+      }
+    });
+  } catch (e) {
+    req.log?.error?.(e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+router13.get("/external/my-novels", async (req, res) => {
+  try {
+    const author = await authenticateAuthor(req);
+    if (!author) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+        message: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D: \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0623\u0648 \u0625\u0631\u0633\u0627\u0644 \u0645\u0641\u062A\u0627\u062D \u0627\u0644\u0640 API"
+      });
+    }
+    const novels = await db.select().from(novelsTable).where((0, import_drizzle_orm10.eq)(novelsTable.authorUid, author.uid)).orderBy((0, import_drizzle_orm10.desc)(novelsTable.updatedAt));
+    res.json({
+      success: true,
+      novels
+    });
+  } catch (e) {
+    req.log?.error?.(e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+router13.post("/external/import", async (req, res) => {
+  try {
+    const author = await authenticateAuthor(req);
+    if (!author) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+        message: "\u0645\u0641\u062A\u0627\u062D \u0627\u0644\u0640 API \u063A\u064A\u0631 \u0635\u0627\u0644\u062D \u0623\u0648 \u0644\u0645 \u064A\u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644. \u064A\u0645\u0643\u0646\u0643 \u0627\u0644\u062D\u0635\u0648\u0644 \u0639\u0644\u0649 \u0645\u0641\u062A\u0627\u062D\u0643 \u0623\u0648 \u0645\u0639\u0631\u0641\u0643 \u0645\u0646 \u062D\u0633\u0627\u0628\u0643 \u0639\u0644\u0649 roayti.com"
+      });
+    }
+    const { novel, chapters } = req.body;
+    if (!novel || !novel.title || typeof novel.title !== "string" || !novel.title.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: "Validation Error",
+        message: "\u062D\u0642\u0644 \u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0631\u0648\u0627\u064A\u0629 (novel.title) \u0645\u0637\u0644\u0648\u0628 \u0648\u0644\u0627 \u064A\u0645\u0643\u0646 \u062A\u0631\u0643\u0647 \u0641\u0627\u0631\u063A\u0627\u064B."
+      });
+    }
+    const novelId = novel.id || import_crypto.default.randomUUID();
+    const novelTitle = novel.title.trim();
+    const novelGenre = novel.genre || "drama";
+    const novelSummary = novel.summary || "";
+    const novelCover = novel.coverImage || "";
+    const novelStatus = novel.status === "published" ? "published" : "draft";
+    const language = novel.language || "ar";
+    const violenceLevel = novel.violenceLevel || "none";
+    const moralTone = novel.moralTone || "neutral";
+    const teraboxLink = novel.teraboxLink || "";
+    const insertedNovel = await db.insert(novelsTable).values({
+      id: novelId,
+      authorUid: author.uid,
+      authorName: author.displayName || "\u0643\u0627\u062A\u0628",
+      authorPhoto: author.photoURL || "",
+      title: novelTitle,
+      genre: novelGenre,
+      summary: novelSummary,
+      coverImage: novelCover,
+      status: novelStatus,
+      language,
+      violenceLevel,
+      moralTone,
+      teraboxLink,
+      createdAt: /* @__PURE__ */ new Date(),
+      updatedAt: /* @__PURE__ */ new Date()
+    }).returning();
+    const insertedChapters = [];
+    if (Array.isArray(chapters) && chapters.length > 0) {
+      for (let i = 0; i < chapters.length; i++) {
+        const ch = chapters[i];
+        if (!ch || !ch.title) continue;
+        const chapterId = ch.id || import_crypto.default.randomUUID();
+        const chapterOrder = typeof ch.order === "number" ? ch.order : i + 1;
+        const chapterTitle = ch.title.trim();
+        const chapterContent = ch.content || "";
+        const chapterDesc = ch.description || "";
+        const inserted = await db.insert(chaptersTable).values({
+          id: chapterId,
+          novelId,
+          title: chapterTitle,
+          content: chapterContent,
+          description: chapterDesc,
+          order: chapterOrder,
+          createdAt: /* @__PURE__ */ new Date(),
+          updatedAt: /* @__PURE__ */ new Date()
+        }).returning();
+        insertedChapters.push(inserted[0]);
+      }
+    }
+    const baseUrl = req.protocol + "://" + (req.get("host") || "www.roayti.com");
+    res.status(201).json({
+      success: true,
+      message: `\u062A\u0645 \u0631\u0641\u0639 \u0648\u0627\u0633\u062A\u064A\u0631\u0627\u062F \u0631\u0648\u0627\u064A\u0629 "${novelTitle}" \u0628\u0646\u062C\u0627\u062D \u0645\u0639 ${insertedChapters.length} \u0641\u0635\u0644! \u0648\u0633\u062A\u062C\u062F\u0647\u0627 \u0641\u064A \u0642\u0627\u0626\u0645\u0629 "\u0627\u0643\u062A\u0628" \u0628\u062D\u0633\u0627\u0628\u0643.`,
+      novel: {
+        id: novelId,
+        title: novelTitle,
+        genre: novelGenre,
+        status: novelStatus,
+        chaptersCount: insertedChapters.length,
+        authorUid: author.uid,
+        authorName: author.displayName
+      },
+      chapters: insertedChapters.map((c) => ({
+        id: c.id,
+        title: c.title,
+        order: c.order
+      })),
+      urls: {
+        studioUrl: `${baseUrl}/#editor?novelId=${novelId}`,
+        novelUrl: `${baseUrl}/#novel?id=${novelId}`,
+        dashboardUrl: `${baseUrl}/#dashboard`
+      }
+    });
+  } catch (e) {
+    req.log?.error?.(e);
+    res.status(500).json({
+      success: false,
+      error: e.message || "Internal Server Error",
+      message: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0623\u062B\u0646\u0627\u0621 \u0627\u0633\u062A\u064A\u0631\u0627\u062F \u0627\u0644\u0631\u0648\u0627\u064A\u0629 \u0648\u0641\u0635\u0648\u0644\u0647\u0627\u060C \u064A\u0631\u062C\u0649 \u0645\u0631\u0627\u062C\u0639\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u062F\u062E\u0644\u0629."
+    });
+  }
+});
+router13.post("/external/novels/:novelId/chapters/batch", async (req, res) => {
+  try {
+    const author = await authenticateAuthor(req);
+    if (!author) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+        message: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D: \u064A\u0631\u062C\u0649 \u062A\u0632\u0648\u064A\u062F \u0645\u0641\u062A\u0627\u062D API \u0635\u0627\u0644\u062D."
+      });
+    }
+    const { novelId } = req.params;
+    const existingNovel = await db.select().from(novelsTable).where((0, import_drizzle_orm10.and)((0, import_drizzle_orm10.eq)(novelsTable.id, novelId), (0, import_drizzle_orm10.eq)(novelsTable.authorUid, author.uid))).limit(1);
+    if (!existingNovel.length) {
+      return res.status(404).json({
+        success: false,
+        error: "Not Found",
+        message: "\u0627\u0644\u0631\u0648\u0627\u064A\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629 \u0623\u0648 \u0623\u0646\u0643 \u0644\u0627 \u062A\u0645\u0644\u0643 \u0635\u0644\u0627\u062D\u064A\u0629 \u062A\u0639\u062F\u064A\u0644\u0647\u0627."
+      });
+    }
+    const { chapters } = req.body;
+    if (!Array.isArray(chapters) || !chapters.length) {
+      return res.status(400).json({
+        success: false,
+        error: "Validation Error",
+        message: "\u064A\u062C\u0628 \u0625\u0631\u0633\u0627\u0644 \u0645\u0635\u0641\u0648\u0641\u0629 \u0641\u0635\u0648\u0644 \u062A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0641\u0635\u0644 \u0648\u0627\u062D\u062F \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644."
+      });
+    }
+    const existingChapters = await db.select().from(chaptersTable).where((0, import_drizzle_orm10.eq)(chaptersTable.novelId, novelId)).orderBy((0, import_drizzle_orm10.desc)(chaptersTable.order)).limit(1);
+    let startOrder = existingChapters.length && existingChapters[0].order ? existingChapters[0].order + 1 : 1;
+    const insertedChapters = [];
+    for (let i = 0; i < chapters.length; i++) {
+      const ch = chapters[i];
+      if (!ch || !ch.title) continue;
+      const order = typeof ch.order === "number" ? ch.order : startOrder + i;
+      const row = await db.insert(chaptersTable).values({
+        id: ch.id || import_crypto.default.randomUUID(),
+        novelId,
+        title: ch.title.trim(),
+        content: ch.content || "",
+        description: ch.description || "",
+        order,
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).returning();
+      insertedChapters.push(row[0]);
+    }
+    await db.update(novelsTable).set({ updatedAt: /* @__PURE__ */ new Date() }).where((0, import_drizzle_orm10.eq)(novelsTable.id, novelId));
+    res.status(201).json({
+      success: true,
+      message: `\u062A\u0645 \u0625\u0636\u0627\u0641\u0629 ${insertedChapters.length} \u0641\u0635\u0644 \u062C\u062F\u064A\u062F \u0644\u0631\u0648\u0627\u064A\u0629 "${existingNovel[0].title}" \u0628\u0646\u062C\u0627\u062D!`,
+      chaptersCount: insertedChapters.length,
+      chapters: insertedChapters
+    });
+  } catch (e) {
+    req.log?.error?.(e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+var externalApi_default = router13;
+
+// api-server/src/routes/index.ts
+var router14 = (0, import_express14.Router)();
+router14.use(health_default);
+router14.use(gemini_default);
+router14.use(upload_default);
+router14.use(users_default);
+router14.use(novels_default);
+router14.use(chapters_default);
+router14.use(follows_default);
+router14.use(library_default);
+router14.use(progress_default);
+router14.use(comments_default);
+router14.use(characters_default);
+router14.use(sitemap_default);
+router14.use(externalApi_default);
+var routes_default = router14;
 
 // api-server/src/lib/logger.ts
 var import_pino = __toESM(require("pino"), 1);
@@ -1572,7 +1819,7 @@ var logger = (0, import_pino.default)({
 
 // api-server/src/app.ts
 init_src();
-var app = (0, import_express14.default)();
+var app = (0, import_express15.default)();
 app.use(
   (0, import_pino_http.default)({
     logger,
@@ -1593,8 +1840,8 @@ app.use(
   })
 );
 app.use((0, import_cors.default)());
-app.use(import_express14.default.json({ limit: "15mb" }));
-app.use(import_express14.default.urlencoded({ extended: true, limit: "15mb" }));
+app.use(import_express15.default.json({ limit: "15mb" }));
+app.use(import_express15.default.urlencoded({ extended: true, limit: "15mb" }));
 app.use("/api", async (req, res, next) => {
   try {
     await ensureDbReady();
@@ -1609,9 +1856,9 @@ var app_default = app;
 init_sitemap();
 init_src();
 init_schema();
-var import_drizzle_orm10 = require("drizzle-orm");
+var import_drizzle_orm11 = require("drizzle-orm");
 async function startServer() {
-  const app2 = (0, import_express15.default)();
+  const app2 = (0, import_express16.default)();
   const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3e3;
   app2.get("/dist_complete.zip", (req, res) => {
     const filePath = import_path2.default.join(process.cwd(), "dist_complete.zip");
@@ -1676,7 +1923,7 @@ Sitemap: ${proto}://${host}/sitemap.xml
     app2.use(vite.middlewares);
   } else {
     const distPath = import_path2.default.join(process.cwd(), "dist");
-    app2.use(import_express15.default.static(distPath, { index: false }));
+    app2.use(import_express16.default.static(distPath, { index: false }));
     app2.get("*", async (req, res) => {
       try {
         const indexPath = import_path2.default.join(distPath, "index.html");
@@ -1687,7 +1934,7 @@ Sitemap: ${proto}://${host}/sitemap.xml
         }
         if (novelId) {
           try {
-            const rows = await db.select().from(novelsTable).where((0, import_drizzle_orm10.eq)(novelsTable.id, novelId)).limit(1);
+            const rows = await db.select().from(novelsTable).where((0, import_drizzle_orm11.eq)(novelsTable.id, novelId)).limit(1);
             if (rows.length > 0) {
               const novel = rows[0];
               if (novel.status !== "published") {

@@ -18,6 +18,7 @@ import { Novel, Chapter, Character, UserProfile, Follow, Comment, LibraryItem, R
 import { generateText } from './services/gemini';
 import AdSense from './components/AdSense';
 import { SitemapView } from './components/SitemapView';
+import { ApiDocsView } from './components/ApiDocsView';
 
 // --- Error Handling & Boundary ---
 
@@ -1404,8 +1405,8 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
   };
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const STATIC_PAGES = ['about', 'privacy', 'terms', 'contact', 'sitemap'] as const;
-  const [view, setView] = useState<'dashboard' | 'explore' | 'novel' | 'editor' | 'characters' | 'settings' | 'reader' | 'profile' | 'following' | 'search' | 'library' | 'privacy' | 'terms' | 'about' | 'contact' | 'ai-writer' | 'ai-books' | 'most-read' | 'sitemap'>(() => {
+  const STATIC_PAGES = ['about', 'privacy', 'terms', 'contact', 'sitemap', 'api'] as const;
+  const [view, setView] = useState<'dashboard' | 'explore' | 'novel' | 'editor' | 'characters' | 'settings' | 'reader' | 'profile' | 'following' | 'search' | 'library' | 'privacy' | 'terms' | 'about' | 'contact' | 'ai-writer' | 'ai-books' | 'most-read' | 'sitemap' | 'api'>(() => {
     const hash = window.location.hash.replace('#', '');
     return (STATIC_PAGES as readonly string[]).includes(hash) ? hash as any : 'explore';
   });
@@ -1641,7 +1642,7 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
   const publicViews = [
     'explore', 'reader', 'profile', 'search', 'novel',
     'library', 'following', 'dashboard', 'settings',
-    'editor', 'characters', 'about', 'contact', 'privacy', 'terms', 'sitemap'
+    'editor', 'characters', 'about', 'contact', 'privacy', 'terms', 'sitemap', 'api'
   ];
 
   if (!effectiveUserId && !publicViews.includes(view)) {
@@ -2760,6 +2761,25 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
                   <p>{t('contact_us_p2', 'يمكنك التواصل معنا عبر البريد الإلكتروني: ahmad.meshaalp@gmail.com')}</p>
                 </div>
               }
+            />
+          )}
+
+          
+          {view === 'api' && (
+            <ApiDocsView
+              onBack={() => setView('explore')}
+              userProfile={userProfile}
+              effectiveUserId={effectiveUserId}
+              onNavigateNovel={(novelId) => {
+                api.getNovel(novelId).then(data => {
+                  if (data) {
+                    setSelectedNovel(data as Novel);
+                    setView('editor');
+                  }
+                });
+              }}
+              onNavigateDashboard={() => setView('dashboard')}
+              showToast={showToast}
             />
           )}
 
@@ -5579,6 +5599,7 @@ const Footer = ({ setView }: { setView: (v: any) => void }) => {
         <a href="#contact" onClick={go('contact')} className="hover:opacity-100 transition-opacity cursor-pointer">{t('contact_us', 'اتصل بنا')}</a>
         <a href="#privacy" onClick={go('privacy')} className="hover:opacity-100 transition-opacity cursor-pointer">{t('privacy_policy', 'سياسة الخصوصية')}</a>
         <a href="#terms" onClick={go('terms')} className="hover:opacity-100 transition-opacity cursor-pointer">{t('terms_of_service', 'شروط الاستخدام')}</a>
+        <a href="#api" onClick={go('api')} className="hover:opacity-100 transition-opacity cursor-pointer flex items-center gap-1 font-bold text-black opacity-80 hover:opacity-100"><Code size={12} /> {t('api_docs', 'الـ API')}</a>
       </div>
       <p>© {new Date().getFullYear()} {t('app_name')} - {t('all_rights_reserved', 'جميع الحقوق محفوظة')}</p>
     </footer>

@@ -11,6 +11,7 @@ import progressRouter from "./progress";
 import commentsRouter from "./comments";
 import charactersRouter from "./characters";
 import sitemapRouter from "./sitemap";
+import externalApiRouter from "./externalApi";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(progressRouter);
 router.use(commentsRouter);
 router.use(charactersRouter);
 router.use(sitemapRouter);
+router.use(externalApiRouter);
 
 export default router;
