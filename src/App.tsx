@@ -187,6 +187,7 @@ import {
   ListOrdered,
   Send,
   Upload,
+  Code,
 } from 'lucide-react';
 import { motion, AnimatePresence } from './lib/motion';
 import Markdown from 'react-markdown';
@@ -5599,7 +5600,7 @@ const Footer = ({ setView }: { setView: (v: any) => void }) => {
         <a href="#contact" onClick={go('contact')} className="hover:opacity-100 transition-opacity cursor-pointer">{t('contact_us', 'اتصل بنا')}</a>
         <a href="#privacy" onClick={go('privacy')} className="hover:opacity-100 transition-opacity cursor-pointer">{t('privacy_policy', 'سياسة الخصوصية')}</a>
         <a href="#terms" onClick={go('terms')} className="hover:opacity-100 transition-opacity cursor-pointer">{t('terms_of_service', 'شروط الاستخدام')}</a>
-        <a href="#api" onClick={go('api')} className="hover:opacity-100 transition-opacity cursor-pointer flex items-center gap-1 font-bold text-black opacity-80 hover:opacity-100"><Code size={12} /> {t('api_docs', 'الـ API')}</a>
+        <a href="#api" onClick={go('api')} className="hover:opacity-100 transition-opacity cursor-pointer flex items-center gap-1 font-bold text-black opacity-80 hover:opacity-100"><Code size={12} /> {t('api_docs', '\u0627\u0644\u0640 API')}</a>
       </div>
       <p>© {new Date().getFullYear()} {t('app_name')} - {t('all_rights_reserved', 'جميع الحقوق محفوظة')}</p>
     </footer>
