@@ -130,26 +130,27 @@ router.post('/external/import', async (req: Request, res: Response) => {
       });
     }
 
-    const { novel, chapters } = req.body;
+    const novelData = req.body.novel || req.body;
+    const chaptersData = req.body.chapters || (req.body.novel && req.body.novel.chapters) || [];
 
-    if (!novel || !novel.title || typeof novel.title !== 'string' || !novel.title.trim()) {
+    if (!novelData || !novelData.title || typeof novelData.title !== 'string' || !novelData.title.trim()) {
       return res.status(400).json({
         success: false,
         error: 'Validation Error',
-        message: 'حقل عنوان الرواية (novel.title) مطلوب ولا يمكن تركه فارغاً.',
+        message: 'حقل عنوان الرواية (title أو novel.title) مطلوب ولا يمكن تركه فارغاً.',
       });
     }
 
-    const novelId = novel.id || crypto.randomUUID();
-    const novelTitle = novel.title.trim();
-    const novelGenre = novel.genre || 'drama';
-    const novelSummary = novel.summary || '';
-    const novelCover = novel.coverImage || '';
-    const novelStatus = novel.status === 'published' ? 'published' : 'draft';
-    const language = novel.language || 'ar';
-    const violenceLevel = novel.violenceLevel || 'none';
-    const moralTone = novel.moralTone || 'neutral';
-    const teraboxLink = novel.teraboxLink || '';
+    const novelId = novelData.id || crypto.randomUUID();
+    const novelTitle = novelData.title.trim();
+    const novelGenre = novelData.genre || (Array.isArray(novelData.genres) && novelData.genres[0]) || 'drama';
+    const novelSummary = novelData.summary || novelData.description || '';
+    const novelCover = novelData.coverImage || novelData.cover || '';
+    const novelStatus = (novelData.status === 'published' || novelData.isDraft === false) ? 'published' : 'draft';
+    const language = novelData.language || 'ar';
+    const violenceLevel = novelData.violenceLevel || 'none';
+    const moralTone = novelData.moralTone || 'neutral';
+    const teraboxLink = novelData.teraboxLink || '';
 
     // 1. Insert novel linked to author
     const insertedNovel = await db
@@ -175,16 +176,16 @@ router.post('/external/import', async (req: Request, res: Response) => {
 
     // 2. Insert chapters if provided
     const insertedChapters = [];
-    if (Array.isArray(chapters) && chapters.length > 0) {
-      for (let i = 0; i < chapters.length; i++) {
-        const ch = chapters[i];
+    if (Array.isArray(chaptersData) && chaptersData.length > 0) {
+      for (let i = 0; i < chaptersData.length; i++) {
+        const ch = chaptersData[i];
         if (!ch || !ch.title) continue;
 
         const chapterId = ch.id || crypto.randomUUID();
-        const chapterOrder = typeof ch.order === 'number' ? ch.order : i + 1;
+        const chapterOrder = typeof ch.order === 'number' ? ch.order : (typeof ch.chapterNumber === 'number' ? ch.chapterNumber : i + 1);
         const chapterTitle = ch.title.trim();
-        const chapterContent = ch.content || '';
-        const chapterDesc = ch.description || '';
+        const chapterContent = ch.content || ch.text || ch.body || '';
+        const chapterDesc = ch.description || ch.summary || '';
 
         const inserted = await db
           .insert(chaptersTable)

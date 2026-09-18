@@ -1638,24 +1638,25 @@ router13.post("/external/import", async (req, res) => {
         message: "\u0645\u0641\u062A\u0627\u062D \u0627\u0644\u0640 API \u063A\u064A\u0631 \u0635\u0627\u0644\u062D \u0623\u0648 \u0644\u0645 \u064A\u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644. \u064A\u0645\u0643\u0646\u0643 \u0627\u0644\u062D\u0635\u0648\u0644 \u0639\u0644\u0649 \u0645\u0641\u062A\u0627\u062D\u0643 \u0623\u0648 \u0645\u0639\u0631\u0641\u0643 \u0645\u0646 \u062D\u0633\u0627\u0628\u0643 \u0639\u0644\u0649 roayti.com"
       });
     }
-    const { novel, chapters } = req.body;
-    if (!novel || !novel.title || typeof novel.title !== "string" || !novel.title.trim()) {
+    const novelData = req.body.novel || req.body;
+    const chaptersData = req.body.chapters || req.body.novel && req.body.novel.chapters || [];
+    if (!novelData || !novelData.title || typeof novelData.title !== "string" || !novelData.title.trim()) {
       return res.status(400).json({
         success: false,
         error: "Validation Error",
-        message: "\u062D\u0642\u0644 \u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0631\u0648\u0627\u064A\u0629 (novel.title) \u0645\u0637\u0644\u0648\u0628 \u0648\u0644\u0627 \u064A\u0645\u0643\u0646 \u062A\u0631\u0643\u0647 \u0641\u0627\u0631\u063A\u0627\u064B."
+        message: "\u062D\u0642\u0644 \u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0631\u0648\u0627\u064A\u0629 (title \u0623\u0648 novel.title) \u0645\u0637\u0644\u0648\u0628 \u0648\u0644\u0627 \u064A\u0645\u0643\u0646 \u062A\u0631\u0643\u0647 \u0641\u0627\u0631\u063A\u0627\u064B."
       });
     }
-    const novelId = novel.id || import_crypto.default.randomUUID();
-    const novelTitle = novel.title.trim();
-    const novelGenre = novel.genre || "drama";
-    const novelSummary = novel.summary || "";
-    const novelCover = novel.coverImage || "";
-    const novelStatus = novel.status === "published" ? "published" : "draft";
-    const language = novel.language || "ar";
-    const violenceLevel = novel.violenceLevel || "none";
-    const moralTone = novel.moralTone || "neutral";
-    const teraboxLink = novel.teraboxLink || "";
+    const novelId = novelData.id || import_crypto.default.randomUUID();
+    const novelTitle = novelData.title.trim();
+    const novelGenre = novelData.genre || Array.isArray(novelData.genres) && novelData.genres[0] || "drama";
+    const novelSummary = novelData.summary || novelData.description || "";
+    const novelCover = novelData.coverImage || novelData.cover || "";
+    const novelStatus = novelData.status === "published" || novelData.isDraft === false ? "published" : "draft";
+    const language = novelData.language || "ar";
+    const violenceLevel = novelData.violenceLevel || "none";
+    const moralTone = novelData.moralTone || "neutral";
+    const teraboxLink = novelData.teraboxLink || "";
     const insertedNovel = await db.insert(novelsTable).values({
       id: novelId,
       authorUid: author.uid,
@@ -1674,15 +1675,15 @@ router13.post("/external/import", async (req, res) => {
       updatedAt: /* @__PURE__ */ new Date()
     }).returning();
     const insertedChapters = [];
-    if (Array.isArray(chapters) && chapters.length > 0) {
-      for (let i = 0; i < chapters.length; i++) {
-        const ch = chapters[i];
+    if (Array.isArray(chaptersData) && chaptersData.length > 0) {
+      for (let i = 0; i < chaptersData.length; i++) {
+        const ch = chaptersData[i];
         if (!ch || !ch.title) continue;
         const chapterId = ch.id || import_crypto.default.randomUUID();
-        const chapterOrder = typeof ch.order === "number" ? ch.order : i + 1;
+        const chapterOrder = typeof ch.order === "number" ? ch.order : typeof ch.chapterNumber === "number" ? ch.chapterNumber : i + 1;
         const chapterTitle = ch.title.trim();
-        const chapterContent = ch.content || "";
-        const chapterDesc = ch.description || "";
+        const chapterContent = ch.content || ch.text || ch.body || "";
+        const chapterDesc = ch.description || ch.summary || "";
         const inserted = await db.insert(chaptersTable).values({
           id: chapterId,
           novelId,
