@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { db } from '@workspace/db';
 import { novelsTable, likesTable } from '@workspace/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
+import { sanitizeIslamicContent } from '../lib/sanitizer';
 
 const router = Router();
 
@@ -16,7 +17,12 @@ router.get('/novels', async (req, res) => {
     const results = conditions.length
       ? await db.select().from(novelsTable).where(and(...conditions)).orderBy(desc(novelsTable.updatedAt))
       : await db.select().from(novelsTable).orderBy(desc(novelsTable.updatedAt));
-    res.json(results);
+    const sanitizedResults = results.map(n => ({
+      ...n,
+      title: sanitizeIslamicContent(n.title),
+      summary: sanitizeIslamicContent(n.summary || ''),
+    }));
+    res.json(sanitizedResults);
   } catch (e: any) {
     req.log.error(e);
     res.status(500).json({ error: e.message });
@@ -27,7 +33,12 @@ router.get('/novels/:id', async (req, res) => {
   try {
     const rows = await db.select().from(novelsTable).where(eq(novelsTable.id, req.params.id)).limit(1);
     if (!rows.length) return res.status(404).json({ error: 'Novel not found' });
-    res.json(rows[0]);
+    const novel = rows[0];
+    res.json({
+      ...novel,
+      title: sanitizeIslamicContent(novel.title),
+      summary: sanitizeIslamicContent(novel.summary || ''),
+    });
   } catch (e: any) {
     req.log.error(e);
     res.status(500).json({ error: e.message });
@@ -36,7 +47,9 @@ router.get('/novels/:id', async (req, res) => {
 
 router.post('/novels', async (req, res) => {
   try {
-    const data = req.body;
+    const data = { ...req.body };
+    if (data.title) data.title = sanitizeIslamicContent(data.title);
+    if (data.summary) data.summary = sanitizeIslamicContent(data.summary);
     const inserted = await db.insert(novelsTable).values({
       id: data.id || crypto.randomUUID(),
       ...data,
@@ -55,6 +68,8 @@ router.put('/novels/:id', async (req, res) => {
     const data = { ...req.body };
     delete data.id;
     delete data.createdAt;
+    if (data.title) data.title = sanitizeIslamicContent(data.title);
+    if (data.summary) data.summary = sanitizeIslamicContent(data.summary);
     const rows = await db.update(novelsTable)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(novelsTable.id, req.params.id))

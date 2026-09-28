@@ -16,6 +16,7 @@ import mammoth from 'mammoth';
 import { encryptData, decryptData } from './lib/encryption';
 import { Novel, Chapter, Character, UserProfile, Follow, Comment, LibraryItem, ReadingProgress, ExternalLink } from './types';
 import { generateText } from './services/gemini';
+import { sanitizeIslamicContent } from './lib/sanitizer';
 import AdSense from './components/AdSense';
 import { SitemapView } from './components/SitemapView';
 import { ApiDocsView } from './components/ApiDocsView';
@@ -1817,9 +1818,9 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
       const novelRef = await api.createNovel({
         authorUid: effectiveUserId,
         authorName: wordUploadAuthorName.trim() || userProfile?.displayName || t('unknown_author'),
-        title: wordUploadTitle.trim(),
+        title: sanitizeIslamicContent(wordUploadTitle.trim()),
         genre: 'drama',
-        summary: sections[0]?.content?.slice(0, 300) + '...' || '',
+        summary: sanitizeIslamicContent(sections[0]?.content?.slice(0, 300) + '...' || ''),
         status: 'draft',
         likesCount: 0,
         viewsCount: 0,
@@ -1837,8 +1838,8 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
       for (let i = 0; i < sections.length; i++) {
         await api.createChapter(novelRef.id, {
           novelId: novelRef.id,
-          title: sections[i].title,
-          content: sections[i].content,
+          title: sanitizeIslamicContent(sections[i].title),
+          content: sanitizeIslamicContent(sections[i].content),
           description: '',
           order: i + 1,
         });
@@ -4312,7 +4313,7 @@ const Reader = ({
               </button>
             </div>
             <div className="mx-auto max-w-2xl bg-black/5 p-6 rounded-xl">
-              <p className="text-sm leading-relaxed text-black/60 italic">{novel.summary}</p>
+              <p className="text-sm leading-relaxed text-black/60 italic">{sanitizeIslamicContent(novel.summary || '')}</p>
             </div>
           </div>
           <div
@@ -4326,10 +4327,10 @@ const Reader = ({
                   <span className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-40 block mb-2">
                     {t('chapter_order_prefix', 'الفصل')} {ch.order}
                   </span>
-                  <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight mb-6">{ch.title}</h2>
+                  <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight mb-6">{sanitizeIslamicContent(ch.title || '')}</h2>
                   <div className="w-16 h-1 bg-black mx-auto"></div>
                 </div>
-                <div className="whitespace-pre-wrap">{ch.content || t('no_content_yet')}</div>
+                <div className="whitespace-pre-wrap">{sanitizeIslamicContent(ch.content || t('no_content_yet'))}</div>
                 {idx < chapters.length - 1 && (
                   <div className="mt-16 flex items-center gap-4 opacity-20">
                     <div className="flex-1 h-px bg-black"></div>
@@ -4389,7 +4390,7 @@ const Reader = ({
                 </button>
               </div>
               <p className="text-sm leading-relaxed text-black/60 italic">
-                {novel.summary}
+                {sanitizeIslamicContent(novel.summary || '')}
               </p>
             </div>
           </div>
@@ -4401,7 +4402,7 @@ const Reader = ({
                   {t('chapter_order_prefix', 'الفصل')} {activeChapter.order}
                 </span>
                 <h2 className="text-3xl sm:text-5xl font-serif font-bold tracking-tight mb-8">
-                  {activeChapter.title}
+                  {sanitizeIslamicContent(activeChapter.title || '')}
                 </h2>
                 <div className="w-24 h-1.5 bg-black mx-auto mb-12"></div>
               </div>
@@ -4416,7 +4417,7 @@ const Reader = ({
                   color: 'rgba(0,0,0,0.8)'
                 }}
               >
-                {activeChapter.content || t('no_content_yet')}
+                {sanitizeIslamicContent(activeChapter.content || t('no_content_yet'))}
               </div>
 
               {/* AdSense Unit */}
@@ -4547,10 +4548,13 @@ const Editor = ({ novel, chapter, onBack, showToast, setConfirmModal, userProfil
     if (saving) return;
     setSaving(true);
     try {
+      const cleanContent = sanitizeIslamicContent(contentToSave);
+      const cleanDescription = sanitizeIslamicContent(descriptionToSave);
+      const cleanTitle = sanitizeIslamicContent(titleToSave);
       await api.updateChapter(novel.id, chapter.id, {
-        content: contentToSave,
-        description: descriptionToSave,
-        title: titleToSave,
+        content: cleanContent,
+        description: cleanDescription,
+        title: cleanTitle,
       });
       setLastSaved(new Date());
     } catch (e: any) {

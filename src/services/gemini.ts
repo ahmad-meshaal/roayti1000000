@@ -1,3 +1,5 @@
+import { sanitizeIslamicContent, containsShirkOrProhibited } from '../lib/sanitizer';
+
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const generateWithRetry = async (params: any, _provider: 'openai' | 'gemini' = 'gemini', retries = 3, backoff = 15000): Promise<any> => {
@@ -26,6 +28,10 @@ const generateWithRetry = async (params: any, _provider: 'openai' | 'gemini' = '
 
     if (!response.ok || data?.error) {
       throw new Error(data?.error || `Gemini API error (Status ${response.status})`);
+    }
+
+    if (data && typeof data.text === 'string') {
+      data.text = sanitizeIslamicContent(data.text);
     }
 
     return data;
@@ -436,3 +442,26 @@ export const moderateContent = async (content: string): Promise<{ isSafe: boolea
     return { isSafe: true };
   }
 };
+
+export const sanitizeWithAI = async (text: string): Promise<string> => {
+  if (!text || typeof text !== 'string') return text;
+  if (!containsShirkOrProhibited(text)) return text;
+
+  try {
+    const customKey = typeof localStorage !== 'undefined' ? (localStorage.getItem('custom_gemini_api_key') || '') : '';
+    const res = await fetch(`${import.meta.env.BASE_URL || '/'}api/gemini/sanitize`.replace('//', '/'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, customApiKey: customKey }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.sanitizedText) return data.sanitizedText;
+    }
+  } catch (e) {
+    console.warn("AI sanitization request failed, applying instant sanitizer", e);
+  }
+
+  return sanitizeIslamicContent(text);
+};
+

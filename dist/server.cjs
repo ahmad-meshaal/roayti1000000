@@ -757,6 +757,141 @@ var health_default = router;
 // api-server/src/routes/gemini.ts
 var import_express2 = require("express");
 var import_genai = require("@google/genai");
+
+// api-server/src/lib/sanitizer.ts
+function containsShirkOrProhibited(text2) {
+  if (!text2 || typeof text2 !== "string") return false;
+  const shirkPatterns = [
+    /(?:^|[\s([«،؛:.\-'"“‘])(?:إله|اله|إلهة|الهة)\s+(ال[^\s.,!؟،؛)]+)/u,
+    /(?:^|[\s([«،؛:.\-'"“‘])(?:ال)?(?:آلهة|الهة|ألهة)/u,
+    /نصف\s+(?:إله|اله)/u,
+    /أنصاف\s+(?:ال)?(?:آلهة|الهة|ألهة)/u,
+    /شبه\s+(?:إله|اله)/u,
+    /(?:تأليه|التأليه|ألوهية|الألوهية)/u,
+    /أصبح\s+(?:إلهاً|الهاً|إله|اله)/u,
+    /(?:أنا|أنه|هو)\s+(?:إلهكم|الهكم|إله|اله|الإله|الاله)/u,
+    /بحق\s+(?:ال)?(?:آلهة|الهة|ألهة)/u,
+    /أقسم\s+ب(?:ال)?(?:آلهة|الهة|ألهة)/u,
+    /(?:سجد|يسجد|خر|سجود)\s+.*?(?:كإله|كالآلهة)/u,
+    /\bgod of\b/i,
+    /\bgoddess of\b/i,
+    /\bthe gods\b/i,
+    /\bdemigods?\b/i
+  ];
+  return shirkPatterns.some((pattern) => pattern.test(text2));
+}
+function sanitizeIslamicContent(text2) {
+  if (!text2 || typeof text2 !== "string") return text2;
+  let res = text2;
+  res = res.replace(/(?:^|(?<=[\s([«،؛:.\-'"“‘]))بحق\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u0628\u062D\u0642 \u0627\u0644\u0633\u0645\u0627\u0621");
+  res = res.replace(/(?:^|(?<=[\s([«،؛:.\-'"“‘]))أقسم\s+ب(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u0623\u0642\u0633\u0645 \u0628\u0634\u0631\u0641\u064A");
+  res = res.replace(/(?:^|(?<=[\s([«،؛:.\-'"“‘]))(?:أيتها|ايتها)\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u064A\u0627 \u0644\u0644\u0647\u0648\u0644");
+  res = res.replace(/(?:^|(?<=[\s([«،؛:.\-'"“‘]))يا\s+ل(?:لآلهة|لالهة)/gu, "\u064A\u0627 \u0644\u0644\u0639\u062C\u0628");
+  res = res.replace(/(?:فلتباركك|لتباركك|باركتك)\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u062D\u0641\u0638\u062A\u0643 \u0627\u0644\u0639\u0646\u0627\u064A\u0629 \u0648\u062D\u0627\u0644\u0641\u0643 \u0627\u0644\u062A\u0648\u0641\u064A\u0642");
+  res = res.replace(/لعنتك\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u062D\u0644\u062A \u0639\u0644\u064A\u0643 \u0627\u0644\u0644\u0639\u0646\u0629");
+  res = res.replace(/استغفر\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u062A\u0631\u0627\u062C\u0639 \u0639\u0646 \u062D\u0645\u0627\u0642\u062A\u0643");
+  res = res.replace(/(?:صلوات|ابتهالات)\s+ل(?:لآلهة|لالهة)/gu, "\u0627\u0628\u062A\u0647\u0627\u0644\u0627\u062A \u0644\u0644\u0633\u0645\u0627\u0621");
+  res = res.replace(/(?:قربان|قرابين)\s+ل(?:لآلهة|لالهة)/gu, "\u0642\u0631\u0627\u0628\u064A\u0646 \u0644\u0635\u0631\u062D \u0627\u0644\u0623\u0633\u0644\u0627\u0641");
+  const contextualTitles = [
+    // الرعد والبرق
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(الرعد|الصواعق|البرق)/gu, replace: "$1\u0633\u064A\u062F $2" },
+    // الحرب والقتال والمعارك
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(الحرب)/gu, replace: "$1\u0623\u0645\u064A\u0631 \u0627\u0644\u062D\u0631\u0628" },
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(المعركة|القتال|النزال)/gu, replace: "$1\u0633\u064A\u062F $2" },
+    // الموت والفناء
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(الموت)/gu, replace: "$1\u062D\u0627\u0635\u062F \u0627\u0644\u0623\u0631\u0648\u0627\u062D" },
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(الفناء|الهلاك)/gu, replace: "$1\u0633\u064A\u062F $2" },
+    // النار والحرارة
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(النار|اللهب|الجحيم|النيران)/gu, replace: "$1\u0633\u064A\u062F $2" },
+    // الرياح والعواصف
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(الرياح)/gu, replace: "$1\u0633\u0644\u0637\u0627\u0646 \u0627\u0644\u0631\u064A\u0627\u062D" },
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(العواصف)/gu, replace: "$1\u0639\u0627\u0647\u0644 \u0627\u0644\u0639\u0648\u0627\u0635\u0641" },
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(الأعاصير)/gu, replace: "$1\u0633\u064A\u062F \u0627\u0644\u0623\u0639\u0627\u0635\u064A\u0631" },
+    // البحر والماء
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(البحر|المحيط|الأعماق|المياه|البحار)/gu, replace: "$1\u0633\u064A\u062F \u0627\u0644\u0623\u0639\u0645\u0627\u0642" },
+    // الشمس والنور
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(الشمس|النهار|الضياء)/gu, replace: "$1\u0639\u0627\u0647\u0644 \u0627\u0644\u0636\u064A\u0627\u0621" },
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(النور|الضوء)/gu, replace: "$1\u0633\u064A\u062F \u0627\u0644\u0646\u0648\u0631" },
+    // القمر والظلام
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(القمر)/gu, replace: "$1\u0633\u064A\u062F \u0627\u0644\u0646\u0648\u0631 \u0627\u0644\u0641\u0636\u064A" },
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(الليل|الظلام|العتمة|الظلمات)/gu, replace: "$1\u0633\u064A\u062F \u0627\u0644\u0638\u0644\u0645\u0627\u062A" },
+    // الدمار والشر والفوضى
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(الدمار|الفوضى|الخراب|الشر|الخبث)/gu, replace: "$1\u0637\u0627\u063A\u064A\u0629 $2" },
+    // السيوف والنصال
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(السيف|النصل|السيوف|النصال)/gu, replace: "$1\u0633\u064A\u062F \u0627\u0644\u0646\u0635\u0627\u0644" },
+    // الحكمة والصيد والطباعة
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(الحكمة|المعرفة)/gu, replace: "$1\u0633\u064A\u062F \u0627\u0644\u062D\u0643\u0645\u0629" },
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(الصيد|القنص)/gu, replace: "$1\u0633\u064A\u062F \u0627\u0644\u0642\u0646\u0635" },
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(القدر|المصير|الزمان)/gu, replace: "$1\u0645\u062A\u062D\u0643\u0645 $2" },
+    // المؤنث (إلهة)
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إلهة|الهة)\s+(القمر)/gu, replace: "$1\u0633\u064A\u062F\u0629 \u0627\u0644\u0642\u0645\u0631" },
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إلهة|الهة)\s+(الجمال|الحسن)/gu, replace: "$1\u0623\u0645\u064A\u0631\u0629 \u0627\u0644\u062D\u0633\u0646" },
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إلهة|الهة)\s+(الحرب)/gu, replace: "$1\u0633\u064A\u062F\u0629 \u0627\u0644\u0645\u0639\u0627\u0631\u0643" },
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إلهة|الهة)\s+(الحكمة)/gu, replace: "$1\u0633\u064A\u062F\u0629 \u0627\u0644\u062D\u0643\u0645\u0629" },
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إلهة|الهة)\s+(الصيد)/gu, replace: "$1\u0623\u0645\u064A\u0631\u0629 \u0627\u0644\u0642\u0646\u0635" },
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إلهة|الهة)\s+(الموت|الفناء)/gu, replace: "$1\u0633\u064A\u062F\u0629 \u0627\u0644\u0641\u0646\u0627\u0621" },
+    { pattern: /(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إلهة|الهة)\s+(النور|الضياء)/gu, replace: "$1\u0633\u064A\u062F\u0629 \u0627\u0644\u0646\u0648\u0631" }
+  ];
+  for (const { pattern, replace } of contextualTitles) {
+    res = res.replace(pattern, (match, prefix, noun) => (prefix || "") + replace.replace("$1", "").replace("$2", noun));
+  }
+  res = res.replace(/(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إله|اله)\s+(ال[^\s.,!؟،؛)]+)/gu, (match, prefix, noun) => {
+    return (prefix || "") + "\u0633\u064A\u062F " + noun;
+  });
+  res = res.replace(/(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)?(?:إلهة|الهة)\s+(ال[^\s.,!؟،؛)]+)/gu, (match, prefix, noun) => {
+    return (prefix || "") + "\u0633\u064A\u062F\u0629 " + noun;
+  });
+  res = res.replace(/نصف\s+(?:إله|اله)/gu, "\u0646\u0635\u0641 \u062C\u0628\u0627\u0631");
+  res = res.replace(/أنصاف\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u0623\u0646\u0635\u0627\u0641 \u062C\u0628\u0627\u0628\u0631\u0629");
+  res = res.replace(/شبه\s+(?:إله|اله)/gu, "\u0634\u0628\u0647 \u062C\u0628\u0627\u0631");
+  res = res.replace(/(?:ابن|أبناء|نسل|سلالة|دم)\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, (m) => {
+    if (m.startsWith("\u0627\u0628\u0646")) return "\u0627\u0628\u0646 \u0627\u0644\u062C\u0628\u0627\u0628\u0631\u0629";
+    if (m.startsWith("\u0623\u0628\u0646\u0627\u0621")) return "\u0623\u0628\u0646\u0627\u0621 \u0627\u0644\u062C\u0628\u0627\u0628\u0631\u0629";
+    if (m.startsWith("\u0646\u0633\u0644")) return "\u0646\u0633\u0644 \u0627\u0644\u062C\u0628\u0627\u0628\u0631\u0629 \u0627\u0644\u0623\u0633\u0627\u0637\u064A\u0631";
+    if (m.startsWith("\u0633\u0644\u0627\u0644\u0629")) return "\u0633\u0644\u0627\u0644\u0629 \u0627\u0644\u0623\u0633\u0627\u0637\u064A\u0631 \u0627\u0644\u0639\u0638\u0645\u0649";
+    return "\u062C\u0648\u0647\u0631 \u0627\u0644\u0623\u0633\u0627\u0637\u064A\u0631 \u0627\u0644\u0639\u0638\u064A\u0645";
+  });
+  res = res.replace(/(?:ال)?(?:آلهة|الهة|ألهة)\s+القديمة/gu, "\u0627\u0644\u062C\u0628\u0627\u0628\u0631\u0629 \u0627\u0644\u0642\u062F\u0627\u0645\u0649");
+  res = res.replace(/(?:ال)?(?:آلهة|الهة|ألهة)\s+العليا/gu, "\u0627\u0644\u0643\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0639\u0644\u064A\u0627");
+  res = res.replace(/(?:ال)?(?:آلهة|الهة|ألهة)\s+السبعة/gu, "\u0627\u0644\u062C\u0628\u0627\u0628\u0631\u0629 \u0627\u0644\u0633\u0628\u0639\u0629");
+  res = res.replace(/(?:ال)?(?:آلهة|الهة|ألهة)\s+(?:الإثني|الاثني|الاثنا|الإثنا)\s+عشر/gu, "\u0627\u0644\u062C\u0628\u0627\u0628\u0631\u0629 \u0627\u0644\u0627\u062B\u0646\u0627 \u0639\u0634\u0631");
+  res = res.replace(/مجلس\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u0645\u062C\u0644\u0633 \u0627\u0644\u062C\u0628\u0627\u0628\u0631\u0629 \u0627\u0644\u0623\u0643\u0628\u0631");
+  res = res.replace(/(?:عصر|زمن|عهد)\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u0639\u0635\u0631 \u0627\u0644\u0623\u0633\u0627\u0637\u064A\u0631");
+  res = res.replace(/(?:معبد|صرح|محراب)\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u0635\u0631\u062D \u0627\u0644\u0623\u0633\u0627\u0637\u064A\u0631");
+  res = res.replace(/(?:عالم|أرض|مملكة|مدينة|حاضرة)\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u0639\u0627\u0644\u0645 \u0627\u0644\u0623\u0633\u0627\u0637\u064A\u0631");
+  res = res.replace(/عرش\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u0639\u0631\u0634 \u0627\u0644\u062C\u0628\u0627\u0628\u0631\u0629");
+  res = res.replace(/(?:مقبرة|قبر)\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u0645\u0642\u0628\u0631\u0629 \u0627\u0644\u062C\u0628\u0627\u0628\u0631\u0629");
+  res = res.replace(/(?:غضب|لعنة)\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u063A\u0636\u0628 \u0627\u0644\u062C\u0628\u0627\u0628\u0631\u0629");
+  res = res.replace(/(?:حرب|معركة)\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u062D\u0631\u0628 \u0627\u0644\u062C\u0628\u0627\u0628\u0631\u0629 \u0627\u0644\u0639\u0638\u0645\u0649");
+  res = res.replace(/سلاح\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u0633\u0644\u0627\u062D \u0627\u0644\u0623\u0633\u0627\u0637\u064A\u0631 \u0627\u0644\u062E\u0627\u0631\u0642");
+  res = res.replace(/قوة\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u0642\u0648\u0629 \u0627\u0644\u062C\u0628\u0627\u0628\u0631\u0629 \u0627\u0644\u062E\u0627\u0631\u0642\u0629");
+  res = res.replace(/بركة\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u0628\u0631\u0643\u0629 \u0627\u0644\u0623\u0633\u0644\u0627\u0641 \u0648\u062A\u0648\u0641\u064A\u0642 \u0627\u0644\u0645\u0633\u0639\u0649");
+  res = res.replace(/(?:^|(?<=[\s([«،؛:.\-'"“‘]))(?:أنا|أنه|هو)\s+(?:إلهكم|الهكم)(?=$|[\s)».,!؟،؛:\-'"”’])/gu, "\u0623\u0646\u0627 \u0633\u064A\u062F\u0643\u0645 \u0627\u0644\u0645\u0637\u0644\u0642");
+  res = res.replace(/(?:^|(?<=[\s([«،؛:.\-'"“‘]))(?:أنا|أنه|هو)\s+(?:إله|اله|الإله|الاله)(?=$|[\s)».,!؟،؛:\-'"”’])/gu, "\u0623\u0646\u0627 \u0627\u0644\u0633\u064A\u062F \u0627\u0644\u0623\u0642\u0648\u0649 \u0648\u0627\u0644\u0623\u0639\u0638\u0645");
+  res = res.replace(/(?:^|(?<=[\s([«،؛:.\-'"“‘]))(?:إلههم|الههم|آلهتهم|الهتهم)(?=$|[\s)».,!؟،؛:\-'"”’])/gu, "\u0623\u0633\u064A\u0627\u062F\u0647\u0645 \u0627\u0644\u0642\u062F\u0627\u0645\u0649");
+  res = res.replace(/(?:^|(?<=[\s([«،؛:.\-'"“‘]))(?:إلهنا|الهنا|آلهتنا|الهتنا)(?=$|[\s)».,!؟،؛:\-'"”’])/gu, "\u0642\u0627\u062F\u062A\u0646\u0627 \u0627\u0644\u0639\u0638\u0645\u0627\u0621");
+  res = res.replace(/(?:سجدوا|يسجدون|خروا|انحنوا)\s+(?:له\s+)?ك(?:إله|اله|الآلهة)/gu, "\u0627\u0646\u062D\u0646\u0648\u0627 \u0644\u0647 \u0625\u062C\u0644\u0627\u0644\u0627\u064B \u0643\u0642\u0627\u0626\u062F \u0645\u0637\u0644\u0642");
+  res = res.replace(/(?:عبدوه|يعبدونه|قدسوه)\s+(?:كإله|كالآلهة)/gu, "\u0628\u062C\u0644\u0648\u0647 \u0648\u0627\u0646\u0642\u0627\u062F\u0648\u0627 \u0644\u0633\u0637\u0648\u062A\u0647 \u0643\u0623\u0639\u0638\u0645 \u0642\u0627\u0626\u062F");
+  res = res.replace(/(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)ال(?:آلهة|الهة|ألهة)(?=$|[\s)».,!؟،؛:\-'"”’])/gu, (m, p) => (p || "") + "\u0627\u0644\u062C\u0628\u0627\u0628\u0631\u0629");
+  res = res.replace(/(?:^|(?<=[\s([«،؛:.\-'"“‘]))([وفلكب]?)(?:آلهة|الهة|ألهة)(?=$|[\s)».,!؟،؛:\-'"”’])/gu, (m, p) => (p || "") + "\u062C\u0628\u0627\u0628\u0631\u0629");
+  res = res.replace(/(?:^|(?<=[\s([«،؛:.\-'"“‘]))ك(?:إله|اله)(?=$|[\s)».,!؟،؛:\-'"”’])/gu, "\u0643\u0633\u064A\u062F \u0639\u0638\u064A\u0645 \u0648\u062C\u0628\u0627\u0631 \u0623\u0633\u0637\u0648\u0631\u064A");
+  res = res.replace(/(?:^|(?<=[\s([«،؛:.\-'"“‘]))ك(?:إلهة|الهة)(?=$|[\s)».,!؟،؛:\-'"”’])/gu, "\u0643\u0633\u064A\u062F\u0629 \u0639\u0638\u064A\u0645\u0629");
+  res = res.replace(/أصبح\s+(?:إلهاً|الهاً|إله|اله)(?=$|[\s)».,!؟،؛:\-'"”’])/gu, "\u0623\u0635\u0628\u062D \u062C\u0628\u0627\u0631\u0627\u064B \u0623\u0633\u0637\u0648\u0631\u064A\u0627\u064B \u0644\u0627 \u064A\u064F\u0642\u0647\u0631");
+  res = res.replace(/(?:^|(?<=[\s([«،؛:.\-'"“‘]))(?:تأليه|التأليه)(?=$|[\s)».,!؟،؛:\-'"”’])/gu, "\u0627\u0644\u0627\u0631\u062A\u0642\u0627\u0621 \u0627\u0644\u0623\u0633\u0637\u0648\u0631\u064A");
+  res = res.replace(/(?:^|(?<=[\s([«،؛:.\-'"“‘]))(?:ألوهية|الألوهية)(?=$|[\s)».,!؟،؛:\-'"”’])/gu, "\u0627\u0644\u062C\u0628\u0631\u0648\u062A \u0627\u0644\u0623\u0633\u0637\u0648\u0631\u064A");
+  res = res.replace(/تضاهي\s+(?:ال)?(?:آلهة|الهة|ألهة)/gu, "\u062A\u0636\u0627\u0647\u064A \u0627\u0644\u062C\u0628\u0627\u0628\u0631\u0629 \u0627\u0644\u0623\u0648\u0627\u0626\u0644");
+  res = res.replace(/\bgod of thunder\b/gi, "Lord of Thunder");
+  res = res.replace(/\bgod of war\b/gi, "Warlord Supreme");
+  res = res.replace(/\bgod of death\b/gi, "Reaper of Souls");
+  res = res.replace(/\bgod of fire\b/gi, "Lord of Fire");
+  res = res.replace(/\bgod of (the )?([a-z]+)\b/gi, (m, the, noun) => `Lord of ${the || ""}${noun}`);
+  res = res.replace(/\bgoddess of (the )?([a-z]+)\b/gi, (m, the, noun) => `Lady of ${the || ""}${noun}`);
+  res = res.replace(/\bthe gods\b/gi, "the ancient titans");
+  res = res.replace(/\bdemigods?\b/gi, (m) => m.toLowerCase().endsWith("s") ? "legendary champions" : "legendary champion");
+  return res;
+}
+
+// api-server/src/routes/gemini.ts
 var router2 = (0, import_express2.Router)();
 router2.post("/gemini/generate", async (req, res) => {
   const { model = "gemini-2.5-flash", contents, config } = req.body;
@@ -764,6 +899,23 @@ router2.post("/gemini/generate", async (req, res) => {
     res.status(400).json({ error: "\u0645\u062D\u062A\u0648\u0649 \u0627\u0644\u0637\u0644\u0628 (contents) \u0645\u0637\u0644\u0648\u0628" });
     return;
   }
+  const islamicInstruction = `
+
+[\u0625\u0631\u0634\u0627\u062F \u0623\u062F\u0628\u064A \u0648\u0623\u0633\u0644\u0648\u0628\u064A \u0625\u0644\u0632\u0627\u0645\u064A \u0644\u0644\u0633\u064A\u0627\u0642:
+- \u064A\u064F\u0645\u0646\u0639 \u0645\u0646\u0639\u0627\u064B \u0628\u0627\u062A\u0627\u064B \u0630\u0643\u0631 \u0623\u064A \u0623\u0644\u0641\u0627\u0638 \u0634\u0631\u0643\u064A\u0629 \u0623\u0648 \u0622\u0644\u0647\u0629 \u0628\u0627\u0637\u0644\u0629 \u0623\u0648 \u0627\u062F\u0639\u0627\u0621\u0627\u062A \u0623\u0644\u0648\u0647\u064A\u0629 \u0644\u0644\u0643\u0627\u0626\u0646\u0627\u062A \u0625\u0637\u0644\u0627\u0642\u0627\u064B.
+- \u0627\u062C\u0639\u0644 \u0627\u0644\u062A\u0639\u0628\u064A\u0631\u0627\u062A \u0645\u062A\u0646\u0627\u063A\u0645\u0629 \u062A\u0645\u0627\u0645\u0627\u064B \u0645\u0639 \u0633\u064A\u0627\u0642 \u0627\u0644\u0645\u0634\u0647\u062F \u0648\u0623\u0633\u0644\u0648\u0628 \u0627\u0644\u0631\u0648\u0627\u064A\u0629 \u0627\u0644\u0641\u0635\u064A\u062D \u0648\u0627\u0644\u0645\u0644\u062D\u0645\u064A:
+  * \u0641\u064A \u0627\u0644\u0642\u0648\u0649 \u0648\u0627\u0644\u0639\u0646\u0627\u0635\u0631 \u0648\u0627\u0644\u0645\u0639\u0627\u0631\u0643: \u0627\u0633\u062A\u062E\u062F\u0645 \u0623\u0644\u0642\u0627\u0628\u0627\u064B \u0641\u062E\u0645\u0629 \u0645\u062A\u0633\u0642\u0629 \u0645\u062B\u0644 (\u0633\u064A\u062F \u0627\u0644\u0631\u0639\u062F / \u0639\u0627\u0647\u0644 \u0627\u0644\u0635\u0648\u0627\u0639\u0642 / \u0623\u0645\u064A\u0631 \u0627\u0644\u062D\u0631\u0628 / \u0633\u064A\u062F \u0627\u0644\u0646\u0635\u0627\u0644 / \u062D\u0627\u0635\u062F \u0627\u0644\u0623\u0631\u0648\u0627\u062D / \u0633\u064A\u062F \u0627\u0644\u0623\u0639\u0645\u0627\u0642 / \u0633\u0644\u0637\u0627\u0646 \u0627\u0644\u0631\u064A\u0627\u062D) \u0628\u062F\u0644\u0627\u064B \u0645\u0646 (\u0625\u0644\u0647 \u0643\u0630\u0627).
+  * \u0641\u064A \u0627\u0644\u0623\u0639\u0631\u0627\u0642 \u0627\u0644\u0642\u062F\u064A\u0645\u0629 \u0648\u0627\u0644\u0623\u0632\u0645\u0646\u0629: \u0627\u0633\u062A\u062E\u062F\u0645 (\u0627\u0644\u062C\u0628\u0627\u0628\u0631\u0629 \u0627\u0644\u0642\u062F\u0627\u0645\u0649 / \u0627\u0644\u0643\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0623\u0632\u0644\u064A\u0629 / \u0627\u0644\u0623\u0633\u064A\u0627\u062F \u0627\u0644\u0623\u0648\u0627\u0626\u0644 / \u0639\u0647\u062F \u0627\u0644\u0623\u0633\u0627\u0637\u064A\u0631 / \u0635\u0631\u062D \u0627\u0644\u0623\u062C\u062F\u0627\u062F / \u0633\u0644\u0627\u0644\u0629 \u0627\u0644\u0646\u0628\u0644\u0627\u0621) \u0628\u062F\u0644\u0627\u064B \u0645\u0646 (\u0627\u0644\u0622\u0644\u0647\u0629 / \u0623\u0646\u0635\u0627\u0641 \u0622\u0644\u0647\u0629 / \u0645\u0639\u0628\u062F \u0627\u0644\u0622\u0644\u0647\u0629 / \u0639\u0635\u0631 \u0627\u0644\u0622\u0644\u0647\u0629).
+  * \u0641\u064A \u0627\u0644\u062D\u0648\u0627\u0631\u0627\u062A \u0648\u0627\u0644\u0642\u0633\u0645: \u0627\u0633\u062A\u062E\u062F\u0645 (\u0628\u062D\u0642 \u0627\u0644\u0633\u0645\u0627\u0621! / \u0623\u0642\u0633\u0645 \u0628\u0634\u0631\u0641\u064A / \u0648\u064A\u062D\u0643! / \u064A\u0627 \u0644\u0644\u0647\u0648\u0644!) \u0628\u062F\u0644\u0627\u064B \u0645\u0646 \u0627\u0644\u0627\u0633\u062A\u0642\u0633\u0627\u0645 \u0628\u0627\u0644\u0622\u0644\u0647\u0629.
+  * \u0641\u064A \u0627\u0644\u062E\u0636\u0648\u0639 \u0648\u0627\u0644\u062A\u0639\u0638\u064A\u0645: \u0627\u062C\u0639\u0644 \u0627\u0644\u0645\u0634\u0627\u0639\u0631 \u062A\u0639\u0638\u064A\u0645\u0627\u064B \u0648\u0625\u062C\u0644\u0627\u0644\u0627\u064B \u0623\u0648 \u0648\u0644\u0627\u0621\u064B \u0648\u0637\u0627\u0639\u0629 \u0644\u0633\u0644\u0637\u0627\u0646 \u0627\u0644\u0642\u0627\u0626\u062F \u0623\u0648 \u0627\u0644\u062C\u0628\u0627\u0631\u060C \u0648\u062A\u062C\u0646\u0628 \u0623\u0644\u0641\u0627\u0638 \u0627\u0644\u0639\u0628\u0627\u062F\u0629 \u0648\u0627\u0644\u0633\u062C\u0648\u062F \u0644\u0644\u0643\u0627\u0626\u0646\u0627\u062A.
+  * \u0627\u062D\u0631\u0635 \u0639\u0644\u0649 \u062A\u062F\u0641\u0642 \u0627\u0644\u0633\u0631\u062F \u0627\u0644\u0623\u062F\u0628\u064A \u0627\u0644\u0639\u0631\u0628\u064A \u0627\u0644\u0628\u0644\u064A\u063A \u0628\u062D\u064A\u062B \u062A\u0628\u062F\u0648 \u0627\u0644\u0639\u0628\u0627\u0631\u0627\u062A \u0637\u0628\u064A\u0639\u064A\u0629 \u0648\u062C\u0630\u0627\u0628\u0629 \u0648\u0631\u0641\u064A\u0639\u0629 \u0627\u0644\u0645\u0633\u062A\u0648\u0649 \u0648\u0645\u062A\u0633\u0642\u0629 \u0645\u0639 \u0633\u064A\u0627\u0642 \u0627\u0644\u0623\u062D\u062F\u0627\u062B \u062F\u0648\u0646 \u0646\u0634\u0627\u0632.]`;
+  const safeContents = contents.map((c) => ({
+    ...c,
+    parts: c.parts.map((p) => ({
+      ...p,
+      text: p.text ? p.text + (c.role === "user" ? islamicInstruction : "") : p.text
+    }))
+  }));
   const userApiKey = config?.userApiKey || "";
   const serverKey = (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "").trim();
   const cleanKey = (k) => k.trim().replace(/^["']|["']$/g, "").replace(/[\r\n\t]/g, "");
@@ -782,7 +934,7 @@ router2.post("/gemini/generate", async (req, res) => {
         const ai = new import_genai.GoogleGenAI({ apiKey: activeKey });
         const response = await ai.models.generateContent({
           model: currentModel,
-          contents,
+          contents: safeContents,
           config: {
             temperature: config?.temperature ?? 0.7,
             maxOutputTokens: config?.maxOutputTokens ?? 8192,
@@ -796,7 +948,8 @@ router2.post("/gemini/generate", async (req, res) => {
           }
         });
         if (response && response.text && response.text.trim()) {
-          return res.json({ text: response.text, candidates: response.candidates, modelUsed: currentModel });
+          const sanitizedText = sanitizeIslamicContent(response.text);
+          return res.json({ text: sanitizedText, candidates: response.candidates, modelUsed: currentModel });
         }
       } catch (err) {
         lastError = err;
@@ -807,6 +960,50 @@ router2.post("/gemini/generate", async (req, res) => {
   req.log.error({ err: lastError }, "Google Gemini API error on all keys and models");
   const errMsg = lastError?.message || String(lastError || "Unknown error");
   return res.status(500).json({ error: `\u0641\u0634\u0644 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0640 Google Gemini: ${errMsg}` });
+});
+router2.post("/gemini/sanitize", async (req, res) => {
+  try {
+    const { text: text2, customApiKey } = req.body;
+    if (!text2 || typeof text2 !== "string") {
+      return res.json({ sanitizedText: text2 || "", modified: false });
+    }
+    if (!containsShirkOrProhibited(text2)) {
+      return res.json({ sanitizedText: text2, modified: false });
+    }
+    const directSanitized = sanitizeIslamicContent(text2);
+    const serverKey = (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "").trim();
+    const apiKey = customApiKey || serverKey;
+    if (apiKey && apiKey.length > 10) {
+      try {
+        const ai = new import_genai.GoogleGenAI({ apiKey });
+        const prompt = `\u0623\u0646\u062A \u0646\u0627\u0642\u062F \u0648\u0645\u062D\u0631\u0631 \u0623\u062F\u0628\u064A \u0648\u0631\u0648\u0627\u0626\u064A \u0645\u062D\u062A\u0631\u0641 \u0631\u0641\u064A\u0639 \u0627\u0644\u0645\u0633\u062A\u0648\u0649. \u0647\u062F\u0641\u0643 \u062A\u0646\u0642\u064A\u0629 \u0627\u0644\u0646\u0635 \u0627\u0644\u0631\u0648\u0627\u0626\u064A \u0627\u0644\u062A\u0627\u0644\u064A \u0645\u0646 \u0623\u064A \u0623\u0644\u0641\u0627\u0638 \u0634\u0631\u0643\u064A\u0629 \u0623\u0648 \u0627\u062F\u0639\u0627\u0621\u0627\u062A \u0623\u0644\u0648\u0647\u064A\u0629 \u0623\u0648 \u0645\u0641\u0627\u0647\u064A\u0645 \u0645\u062E\u0627\u0644\u0641\u0629 \u0644\u0644\u0634\u0631\u064A\u0639\u0629 \u0627\u0644\u0625\u0633\u0644\u0627\u0645\u064A\u0629\u060C \u0645\u0639 \u0625\u0639\u0627\u062F\u0629 \u0643\u062A\u0627\u0628\u062A\u0647\u0627 \u0628\u0623\u0633\u0644\u0648\u0628 \u0623\u062F\u0628\u064A \u0628\u0644\u064A\u063A \u0645\u062A\u0646\u0627\u063A\u0645 \u0648\u0645\u062A\u0646\u0627\u0633\u0628 \u062A\u0645\u0627\u0645\u0627\u064B \u0645\u0639 \u0633\u064A\u0627\u0642 \u0627\u0644\u0645\u0634\u0647\u062F:
+1. \u0627\u0633\u062A\u0628\u062F\u0644 \u0623\u064A \u0630\u0643\u0631 \u0644\u0644\u0622\u0644\u0647\u0629 \u0627\u0644\u062E\u064A\u0627\u0644\u064A\u0629 \u0628\u0628\u062F\u064A\u0644 \u0623\u062F\u0628\u064A \u0641\u062E\u0645 \u064A\u0644\u0627\u0626\u0645 \u0627\u0644\u0633\u064A\u0627\u0642 \u0627\u0644\u062F\u0631\u0627\u0645\u064A:
+   - \u0641\u064A \u0642\u0648\u0649 \u0627\u0644\u0639\u0646\u0627\u0635\u0631 \u0648\u0627\u0644\u0645\u0639\u0627\u0631\u0643: (\u0633\u064A\u062F \u0627\u0644\u0631\u0639\u062F\u060C \u0639\u0627\u0647\u0644 \u0627\u0644\u0635\u0648\u0627\u0639\u0642\u060C \u0623\u0645\u064A\u0631 \u0627\u0644\u062D\u0631\u0628\u060C \u0628\u0637\u0644 \u0627\u0644\u0645\u0639\u0627\u0631\u0643\u060C \u062D\u0627\u0635\u062F \u0627\u0644\u0623\u0631\u0648\u0627\u062D\u060C \u0633\u064A\u062F \u0627\u0644\u0638\u0644\u0627\u0645\u060C \u0633\u0644\u0637\u0627\u0646 \u0627\u0644\u0636\u064A\u0627\u0621...).
+   - \u0641\u064A \u0627\u0644\u0643\u064A\u0627\u0646\u0627\u062A \u0648\u0627\u0644\u0623\u0639\u0631\u0627\u0642 \u0627\u0644\u0642\u062F\u064A\u0645\u0629: (\u0627\u0644\u062C\u0628\u0627\u0628\u0631\u0629 \u0627\u0644\u0642\u062F\u0627\u0645\u0649\u060C \u0627\u0644\u0623\u0633\u064A\u0627\u062F \u0627\u0644\u0623\u0648\u0627\u0626\u0644\u060C \u0627\u0644\u0643\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0623\u0633\u0637\u0648\u0631\u064A\u0629\u060C \u0639\u0635\u0631 \u0627\u0644\u0623\u0633\u0627\u0637\u064A\u0631\u060C \u0635\u0631\u062D \u0627\u0644\u0623\u062C\u062F\u0627\u062F\u060C \u0633\u0644\u0627\u0644\u0629 \u0627\u0644\u0623\u0628\u0637\u0627\u0644...).
+   - \u0641\u064A \u0627\u0644\u0642\u0633\u0645 \u0648\u0627\u0644\u062D\u0648\u0627\u0631\u0627\u062A \u0648\u0627\u0644\u062A\u0639\u062C\u0628: (\u0628\u062D\u0642 \u0627\u0644\u0633\u0645\u0627\u0621\u060C \u0623\u0642\u0633\u0645 \u0628\u0634\u0631\u0641\u064A\u060C \u064A\u0627 \u0644\u0644\u0639\u062C\u0628\u060C \u0648\u064A\u062D\u0643...).
+   - \u0641\u064A \u0627\u0644\u0637\u0627\u0639\u0629 \u0648\u0627\u0644\u0648\u0644\u0627\u0621: \u0627\u0633\u062A\u0628\u062F\u0644 \u0627\u0644\u0633\u062C\u0648\u062F \u0648\u0627\u0644\u0639\u0628\u0627\u062F\u0629 \u0628\u0640 (\u0627\u0644\u0627\u0646\u062D\u0646\u0627\u0621 \u0625\u062C\u0644\u0627\u0644\u0627\u064B\u060C \u0627\u0644\u0648\u0644\u0627\u0621 \u0627\u0644\u0645\u0637\u0644\u0642\u060C \u0627\u0644\u062E\u0636\u0648\u0639 \u0644\u0633\u0644\u0637\u0627\u0646\u0647).
+2. \u0627\u062C\u0639\u0644 \u0627\u0644\u0635\u064A\u0627\u063A\u0629 \u0637\u0628\u064A\u0639\u064A\u0629 \u0648\u0633\u0644\u0633\u0629 \u0648\u0641\u0635\u064A\u062D\u0629\u060C \u0628\u062D\u064A\u062B \u062A\u0646\u0633\u062C\u0645 \u0628\u0633\u0644\u0627\u0633\u0629 \u0645\u0639 \u0627\u0644\u0633\u064A\u0627\u0642 \u0627\u0644\u0633\u0631\u062F\u064A \u0648\u0643\u0623\u0646 \u0627\u0644\u0631\u0648\u0627\u064A\u0629 \u0643\u062A\u0628\u062A \u0647\u0643\u0630\u0627 \u0641\u064A \u0627\u0644\u0623\u0635\u0644 \u062F\u0648\u0646 \u0623\u064A \u0631\u0643\u0627\u0643\u0629.
+3. \u0644\u0627 \u062A\u063A\u064A\u0631 \u062D\u0628\u0643\u0629 \u0627\u0644\u0623\u062D\u062F\u0627\u062B \u0623\u0648 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0634\u062E\u0635\u064A\u0627\u062A\u060C \u0648\u0644\u0627 \u062A\u0636\u0641 \u0623\u064A \u0645\u0642\u062F\u0645\u0627\u062A \u0623\u0648 \u0647\u0648\u0627\u0645\u0634 \u0623\u0648 \u062A\u0639\u0644\u064A\u0642\u0627\u062A \u0645\u0646 \u0642\u0628\u0644\u0643. \u0623\u0639\u062F \u0627\u0644\u0646\u0635 \u0627\u0644\u0631\u0648\u0627\u0626\u064A \u0627\u0644\u0645\u0646\u0642\u0649 \u0641\u0642\u0637:
+
+${text2.substring(0, 8e3)}`;
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          config: { temperature: 0.3 }
+        });
+        if (response && response.text && response.text.trim()) {
+          const finalClean = sanitizeIslamicContent(response.text.trim());
+          return res.json({ sanitizedText: finalClean, modified: true, method: "ai" });
+        }
+      } catch (aiErr) {
+        req.log.warn({ err: aiErr?.message }, "AI sanitize rewrite failed, using deterministic sanitizer");
+      }
+    }
+    return res.json({ sanitizedText: directSanitized, modified: true, method: "regex" });
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 var gemini_default = router2;
 
@@ -1064,7 +1261,12 @@ router5.get("/novels", async (req, res) => {
     if (status) conditions.push((0, import_drizzle_orm2.eq)(novelsTable.status, status));
     if (language && language !== "all") conditions.push((0, import_drizzle_orm2.eq)(novelsTable.language, language));
     const results = conditions.length ? await db.select().from(novelsTable).where((0, import_drizzle_orm2.and)(...conditions)).orderBy((0, import_drizzle_orm2.desc)(novelsTable.updatedAt)) : await db.select().from(novelsTable).orderBy((0, import_drizzle_orm2.desc)(novelsTable.updatedAt));
-    res.json(results);
+    const sanitizedResults = results.map((n) => ({
+      ...n,
+      title: sanitizeIslamicContent(n.title),
+      summary: sanitizeIslamicContent(n.summary || "")
+    }));
+    res.json(sanitizedResults);
   } catch (e) {
     req.log.error(e);
     res.status(500).json({ error: e.message });
@@ -1074,7 +1276,12 @@ router5.get("/novels/:id", async (req, res) => {
   try {
     const rows = await db.select().from(novelsTable).where((0, import_drizzle_orm2.eq)(novelsTable.id, req.params.id)).limit(1);
     if (!rows.length) return res.status(404).json({ error: "Novel not found" });
-    res.json(rows[0]);
+    const novel = rows[0];
+    res.json({
+      ...novel,
+      title: sanitizeIslamicContent(novel.title),
+      summary: sanitizeIslamicContent(novel.summary || "")
+    });
   } catch (e) {
     req.log.error(e);
     res.status(500).json({ error: e.message });
@@ -1082,7 +1289,9 @@ router5.get("/novels/:id", async (req, res) => {
 });
 router5.post("/novels", async (req, res) => {
   try {
-    const data = req.body;
+    const data = { ...req.body };
+    if (data.title) data.title = sanitizeIslamicContent(data.title);
+    if (data.summary) data.summary = sanitizeIslamicContent(data.summary);
     const inserted = await db.insert(novelsTable).values({
       id: data.id || crypto.randomUUID(),
       ...data,
@@ -1100,6 +1309,8 @@ router5.put("/novels/:id", async (req, res) => {
     const data = { ...req.body };
     delete data.id;
     delete data.createdAt;
+    if (data.title) data.title = sanitizeIslamicContent(data.title);
+    if (data.summary) data.summary = sanitizeIslamicContent(data.summary);
     const rows = await db.update(novelsTable).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where((0, import_drizzle_orm2.eq)(novelsTable.id, req.params.id)).returning();
     if (!rows.length) return res.status(404).json({ error: "Novel not found" });
     res.json(rows[0]);
@@ -1181,7 +1392,13 @@ var router6 = (0, import_express6.Router)();
 router6.get("/novels/:novelId/chapters", async (req, res) => {
   try {
     const rows = await db.select().from(chaptersTable).where((0, import_drizzle_orm3.eq)(chaptersTable.novelId, req.params.novelId)).orderBy((0, import_drizzle_orm3.asc)(chaptersTable.order));
-    res.json(rows);
+    const sanitizedRows = rows.map((r) => ({
+      ...r,
+      title: sanitizeIslamicContent(r.title),
+      content: sanitizeIslamicContent(r.content || ""),
+      description: r.description ? sanitizeIslamicContent(r.description) : r.description
+    }));
+    res.json(sanitizedRows);
   } catch (e) {
     req.log.error(e);
     res.status(500).json({ error: e.message });
@@ -1191,7 +1408,13 @@ router6.get("/novels/:novelId/chapters/:id", async (req, res) => {
   try {
     const rows = await db.select().from(chaptersTable).where((0, import_drizzle_orm3.and)((0, import_drizzle_orm3.eq)(chaptersTable.id, req.params.id), (0, import_drizzle_orm3.eq)(chaptersTable.novelId, req.params.novelId))).limit(1);
     if (!rows.length) return res.status(404).json({ error: "Chapter not found" });
-    res.json(rows[0]);
+    const chapter = rows[0];
+    res.json({
+      ...chapter,
+      title: sanitizeIslamicContent(chapter.title),
+      content: sanitizeIslamicContent(chapter.content || ""),
+      description: chapter.description ? sanitizeIslamicContent(chapter.description) : chapter.description
+    });
   } catch (e) {
     req.log.error(e);
     res.status(500).json({ error: e.message });
@@ -1200,6 +1423,9 @@ router6.get("/novels/:novelId/chapters/:id", async (req, res) => {
 router6.post("/novels/:novelId/chapters", async (req, res) => {
   try {
     const data = { ...req.body, novelId: req.params.novelId };
+    if (data.title) data.title = sanitizeIslamicContent(data.title);
+    if (data.content) data.content = sanitizeIslamicContent(data.content);
+    if (data.description) data.description = sanitizeIslamicContent(data.description);
     const inserted = await db.insert(chaptersTable).values({
       id: data.id || crypto.randomUUID(),
       ...data,
@@ -1218,6 +1444,9 @@ router6.put("/novels/:novelId/chapters/:id", async (req, res) => {
     delete data.id;
     delete data.novelId;
     delete data.createdAt;
+    if (data.title) data.title = sanitizeIslamicContent(data.title);
+    if (data.content) data.content = sanitizeIslamicContent(data.content);
+    if (data.description) data.description = sanitizeIslamicContent(data.description);
     const rows = await db.update(chaptersTable).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where((0, import_drizzle_orm3.and)((0, import_drizzle_orm3.eq)(chaptersTable.id, req.params.id), (0, import_drizzle_orm3.eq)(chaptersTable.novelId, req.params.novelId))).returning();
     if (!rows.length) return res.status(404).json({ error: "Chapter not found" });
     res.json(rows[0]);
@@ -1691,9 +1920,9 @@ router13.post("/external/import", async (req, res) => {
       });
     }
     const novelId = novelData.id || import_crypto.default.randomUUID();
-    const novelTitle = novelData.title.trim();
+    const novelTitle = sanitizeIslamicContent(novelData.title.trim());
     const novelGenre = novelData.genre || Array.isArray(novelData.genres) && novelData.genres[0] || "drama";
-    const novelSummary = novelData.summary || novelData.description || "";
+    const novelSummary = sanitizeIslamicContent(novelData.summary || novelData.description || "");
     const novelCover = novelData.coverImage || novelData.cover || "";
     const novelStatus = novelData.status === "published" || novelData.isDraft === false ? "published" : "draft";
     const language = novelData.language || "ar";
@@ -1724,9 +1953,9 @@ router13.post("/external/import", async (req, res) => {
         if (!ch || !ch.title) continue;
         const chapterId = ch.id || import_crypto.default.randomUUID();
         const chapterOrder = typeof ch.order === "number" ? ch.order : typeof ch.chapterNumber === "number" ? ch.chapterNumber : i + 1;
-        const chapterTitle = ch.title.trim();
-        const chapterContent = ch.content || ch.text || ch.body || "";
-        const chapterDesc = ch.description || ch.summary || "";
+        const chapterTitle = sanitizeIslamicContent(ch.title.trim());
+        const chapterContent = sanitizeIslamicContent(ch.content || ch.text || ch.body || "");
+        const chapterDesc = sanitizeIslamicContent(ch.description || ch.summary || "");
         const inserted = await db.insert(chaptersTable).values({
           id: chapterId,
           novelId,
@@ -1810,9 +2039,9 @@ router13.post("/external/novels/:novelId/chapters/batch", async (req, res) => {
       const row = await db.insert(chaptersTable).values({
         id: ch.id || import_crypto.default.randomUUID(),
         novelId,
-        title: ch.title.trim(),
-        content: ch.content || "",
-        description: ch.description || "",
+        title: sanitizeIslamicContent(ch.title.trim()),
+        content: sanitizeIslamicContent(ch.content || ""),
+        description: sanitizeIslamicContent(ch.description || ""),
         order,
         createdAt: /* @__PURE__ */ new Date(),
         updatedAt: /* @__PURE__ */ new Date()
@@ -1984,8 +2213,10 @@ Sitemap: ${proto}://${host}/sitemap.xml
               if (novel.status !== "published") {
                 html = html.replace(/<meta name="robots" content=".*?"\s*\/?>/gi, `<meta name="robots" content="noindex, nofollow" />`);
               } else {
-                const pageTitle = `${novel.title} | \u0631\u0648\u0627\u064A\u0629 \u0639\u0644\u0649 \u0645\u0646\u0635\u0629 \u0631\u0648\u0627\u064A\u062A\u064A Roayti`;
-                const pageDesc = novel.summary ? novel.summary.slice(0, 200) : `\u0627\u0642\u0631\u0623 \u0631\u0648\u0627\u064A\u0629 ${novel.title} \u0639\u0644\u0649 \u0645\u0646\u0635\u0629 \u0631\u0648\u0627\u064A\u062A\u064A \u0644\u0644\u0631\u0648\u0627\u064A\u0627\u062A \u0648\u0627\u0644\u0642\u0635\u0635 \u0627\u0644\u0639\u0631\u0628\u064A\u0629 \u0628\u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A.`;
+                const cleanTitle = sanitizeIslamicContent(novel.title || "");
+                const cleanSummary = sanitizeIslamicContent(novel.summary || "");
+                const pageTitle = `${cleanTitle} | \u0631\u0648\u0627\u064A\u0629 \u0639\u0644\u0649 \u0645\u0646\u0635\u0629 \u0631\u0648\u0627\u064A\u062A\u064A Roayti`;
+                const pageDesc = cleanSummary ? cleanSummary.slice(0, 200) : `\u0627\u0642\u0631\u0623 \u0631\u0648\u0627\u064A\u0629 ${cleanTitle} \u0639\u0644\u0649 \u0645\u0646\u0635\u0629 \u0631\u0648\u0627\u064A\u062A\u064A \u0644\u0644\u0631\u0648\u0627\u064A\u0627\u062A \u0648\u0627\u0644\u0642\u0635\u0635 \u0627\u0644\u0639\u0631\u0628\u064A\u0629 \u0628\u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A.`;
                 const coverImg = novel.coverImage || "https://roayti.com/pwa-512x512.png";
                 html = html.replace(/<meta name="robots" content=".*?"\s*\/?>/gi, `<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />`);
                 html = html.replace(/<title>.*?<\/title>/gi, `<title>${pageTitle}</title>`);

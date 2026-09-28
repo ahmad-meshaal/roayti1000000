@@ -7,6 +7,7 @@ import { generateSitemapXml } from "./api-server/src/routes/sitemap";
 import { db } from "@workspace/db";
 import { novelsTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
+import { sanitizeIslamicContent } from "./api-server/src/lib/sanitizer";
 
 async function startServer() {
   const app = express();
@@ -105,8 +106,10 @@ async function startServer() {
                 // If not published, strictly prevent search engines from indexing it
                 html = html.replace(/<meta name="robots" content=".*?"\s*\/?>/gi, `<meta name="robots" content="noindex, nofollow" />`);
               } else {
-                const pageTitle = `${novel.title} | رواية على منصة روايتي Roayti`;
-                const pageDesc = novel.summary ? novel.summary.slice(0, 200) : `اقرأ رواية ${novel.title} على منصة روايتي للروايات والقصص العربية بالذكاء الاصطناعي.`;
+                const cleanTitle = sanitizeIslamicContent(novel.title || "");
+                const cleanSummary = sanitizeIslamicContent(novel.summary || "");
+                const pageTitle = `${cleanTitle} | رواية على منصة روايتي Roayti`;
+                const pageDesc = cleanSummary ? cleanSummary.slice(0, 200) : `اقرأ رواية ${cleanTitle} على منصة روايتي للروايات والقصص العربية بالذكاء الاصطناعي.`;
                 const coverImg = novel.coverImage || "https://roayti.com/pwa-512x512.png";
 
                 // Ensure robots meta is index, follow for published

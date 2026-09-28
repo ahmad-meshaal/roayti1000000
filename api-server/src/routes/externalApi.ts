@@ -3,6 +3,7 @@ import { db } from '@workspace/db';
 import { usersTable, novelsTable, chaptersTable } from '@workspace/db/schema';
 import { eq, and, desc, asc } from 'drizzle-orm';
 import crypto from 'crypto';
+import { sanitizeIslamicContent } from '../lib/sanitizer';
 
 const router = Router();
 
@@ -199,9 +200,9 @@ router.post('/external/import', async (req: Request, res: Response) => {
     }
 
     const novelId = novelData.id || crypto.randomUUID();
-    const novelTitle = novelData.title.trim();
+    const novelTitle = sanitizeIslamicContent(novelData.title.trim());
     const novelGenre = novelData.genre || (Array.isArray(novelData.genres) && novelData.genres[0]) || 'drama';
-    const novelSummary = novelData.summary || novelData.description || '';
+    const novelSummary = sanitizeIslamicContent(novelData.summary || novelData.description || '');
     const novelCover = novelData.coverImage || novelData.cover || '';
     const novelStatus = (novelData.status === 'published' || novelData.isDraft === false) ? 'published' : 'draft';
     const language = novelData.language || 'ar';
@@ -240,9 +241,9 @@ router.post('/external/import', async (req: Request, res: Response) => {
 
         const chapterId = ch.id || crypto.randomUUID();
         const chapterOrder = typeof ch.order === 'number' ? ch.order : (typeof ch.chapterNumber === 'number' ? ch.chapterNumber : i + 1);
-        const chapterTitle = ch.title.trim();
-        const chapterContent = ch.content || ch.text || ch.body || '';
-        const chapterDesc = ch.description || ch.summary || '';
+        const chapterTitle = sanitizeIslamicContent(ch.title.trim());
+        const chapterContent = sanitizeIslamicContent(ch.content || ch.text || ch.body || '');
+        const chapterDesc = sanitizeIslamicContent(ch.description || ch.summary || '');
 
         const inserted = await db
           .insert(chaptersTable)
@@ -357,9 +358,9 @@ router.post('/external/novels/:novelId/chapters/batch', async (req: Request, res
         .values({
           id: ch.id || crypto.randomUUID(),
           novelId,
-          title: ch.title.trim(),
-          content: ch.content || '',
-          description: ch.description || '',
+          title: sanitizeIslamicContent(ch.title.trim()),
+          content: sanitizeIslamicContent(ch.content || ''),
+          description: sanitizeIslamicContent(ch.description || ''),
           order,
           createdAt: new Date(),
           updatedAt: new Date(),
