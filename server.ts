@@ -70,6 +70,13 @@ async function startServer() {
     res.send(robotsTxt);
   });
 
+  // Explicit ads.txt route for Google AdSense crawler
+  app.get("/ads.txt", (req, res) => {
+    res.header("Content-Type", "text/plain; charset=utf-8");
+    res.header("Cache-Control", "public, max-age=86400");
+    res.send("google.com, pub-7108609286164560, DIRECT, f08c47fec0942fa0\n");
+  });
+
   // API Router
   app.use(apiApp);
 
@@ -129,6 +136,36 @@ async function startServer() {
               }
             }
           } catch (_) {}
+        } else {
+          const reqPath = req.path.toLowerCase().replace(/\/$/, "");
+          let pageTitle = "";
+          let pageDesc = "";
+
+          if (reqPath === "/privacy") {
+            pageTitle = "سياسة الخصوصية وملفات تعريف الارتباط | منصة روايتي Roayti";
+            pageDesc = "سياسة الخصوصية المعتمدة لـ Google AdSense وملفات تعريف الارتباط وحماية حقوق المستخدمين على منصة روايتي.";
+          } else if (reqPath === "/about") {
+            pageTitle = "من نحن | عن منصة روايتي وأدوات الكاتب الذكي Roayti";
+            pageDesc = "تعرف على منصة روايتي، البيئة العربية الأولى لقراءة وكتابة الروايات التفاعلية وتمكين المؤلفين بتقنيات الذكاء الاصطناعي الأخلاقي.";
+          } else if (reqPath === "/terms") {
+            pageTitle = "شروط وأحكام الاستخدام والملكية الفكرية | منصة روايتي Roayti";
+            pageDesc = "شروط استخدام منصة روايتي، حماية حقوق الملكية الفكرية للمؤلفين بنسبة 100%، وقواعد النشر والأمان.";
+          } else if (reqPath === "/contact") {
+            pageTitle = "اتصل بنا والدعم الفني | منصة روايتي Roayti";
+            pageDesc = "تواصل مع فريق الدعم الفني وإدارة منصة روايتي للاستفسارات العامة، بلاغات حقوق الملكية الفكرية DMCA، ومقترحات التطوير.";
+          } else if (reqPath === "/faq") {
+            pageTitle = "الأسئلة الشائعة ودليل المنصة | منصة روايتي Roayti";
+            pageDesc = "إجابات شاملة حول القراءة المجانية، نشر الروايات، حماية الملكية الفكرية، ومساعد الكاتب الذكي على منصة روايتي.";
+          }
+
+          if (pageTitle && pageDesc) {
+            html = html.replace(/<title>.*?<\/title>/gi, `<title>${pageTitle}</title>`);
+            html = html.replace(/<meta name="description" content=".*?"\s*\/?>/gi, `<meta name="description" content="${pageDesc}" />`);
+            html = html.replace(/<meta property="og:title" content=".*?"\s*\/?>/gi, `<meta property="og:title" content="${pageTitle}" />`);
+            html = html.replace(/<meta property="og:description" content=".*?"\s*\/?>/gi, `<meta property="og:description" content="${pageDesc}" />`);
+            html = html.replace(/<meta name="twitter:title" content=".*?"\s*\/?>/gi, `<meta name="twitter:title" content="${pageTitle}" />`);
+            html = html.replace(/<meta name="twitter:description" content=".*?"\s*\/?>/gi, `<meta name="twitter:description" content="${pageDesc}" />`);
+          }
         }
 
         res.send(html);

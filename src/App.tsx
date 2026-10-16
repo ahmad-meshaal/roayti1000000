@@ -20,6 +20,12 @@ import { sanitizeIslamicContent } from './lib/sanitizer';
 import AdSense from './components/AdSense';
 import { SitemapView } from './components/SitemapView';
 import { ApiDocsView } from './components/ApiDocsView';
+import { PrivacyPolicyView } from './components/PrivacyPolicyView';
+import { AboutUsView } from './components/AboutUsView';
+import { ContactUsView } from './components/ContactUsView';
+import { TermsOfServiceView } from './components/TermsOfServiceView';
+import { FaqView } from './components/FaqView';
+import { Footer } from './components/Footer';
 
 // --- Error Handling & Boundary ---
 
@@ -1407,8 +1413,8 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
   };
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const STATIC_PAGES = ['about', 'privacy', 'terms', 'contact', 'sitemap', 'api'] as const;
-  const [view, setView] = useState<'dashboard' | 'explore' | 'novel' | 'editor' | 'characters' | 'settings' | 'reader' | 'profile' | 'following' | 'search' | 'library' | 'privacy' | 'terms' | 'about' | 'contact' | 'ai-writer' | 'ai-books' | 'most-read' | 'sitemap' | 'api'>(() => {
+  const STATIC_PAGES = ['about', 'privacy', 'terms', 'contact', 'faq', 'sitemap', 'api'] as const;
+  const [view, setView] = useState<'dashboard' | 'explore' | 'novel' | 'editor' | 'characters' | 'settings' | 'reader' | 'profile' | 'following' | 'search' | 'library' | 'privacy' | 'terms' | 'about' | 'contact' | 'faq' | 'ai-writer' | 'ai-books' | 'most-read' | 'sitemap' | 'api'>(() => {
     const hash = window.location.hash.replace('#', '');
     return (STATIC_PAGES as readonly string[]).includes(hash) ? hash as any : 'explore';
   });
@@ -1644,7 +1650,7 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
   const publicViews = [
     'explore', 'reader', 'profile', 'search', 'novel',
     'library', 'following', 'dashboard', 'settings',
-    'editor', 'characters', 'about', 'contact', 'privacy', 'terms', 'sitemap', 'api'
+    'editor', 'characters', 'about', 'contact', 'privacy', 'terms', 'faq', 'sitemap', 'api'
   ];
 
   if (!effectiveUserId && !publicViews.includes(view)) {
@@ -2704,66 +2710,23 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
           )}
 
           {view === 'privacy' && (
-            <LegalPage 
-              title={t('privacy_policy_title', 'سياسة الخصوصية')}
-              onBack={() => setView('explore')}
-              content={
-                <div className={`space-y-4 ${i18n.language === 'ar' ? 'text-right' : 'text-left'}`}>
-                  <p>{t('privacy_intro', 'نحن نحترم خصوصيتك. يتم جمع المعلومات فقط لتحسين تجربة المستخدم وتوفير ميزات الذكاء الاصطناعي.')}</p>
-                  <h3 className="font-bold">{t('privacy_data_title', '1. البيانات التي نجمعها')}</h3>
-                  <p>{t('privacy_data_desc', 'نجمع البيانات التي تقدمها عند استخدام الموقع مثل الاسم والبريد الإلكتروني والمحتوى الذي تنشئه.')}</p>
-                  <h3 className="font-bold">{t('privacy_cookies_title', '2. ملفات تعريف الارتباط')}</h3>
-                  <p>{t('privacy_cookies_desc', 'نستخدم ملفات تعريف الارتباط لتحسين تجربة تسجيل الدخول وتذكر تفضيلاتك.')}</p>
-                  <h3 className="font-bold">{t('privacy_sharing_title', '3. مشاركة البيانات')}</h3>
-                  <p>{t('privacy_sharing_desc', 'لا نقوم ببيع بياناتك لأطراف خارجية.')}</p>
-                </div>
-              }
-            />
+            <PrivacyPolicyView onBack={() => setView('explore')} />
           )}
 
           {view === 'terms' && (
-            <LegalPage 
-              title={t('terms_title', 'شروط الاستخدام')}
-              onBack={() => setView('explore')}
-              content={
-                <div className={`space-y-4 ${i18n.language === 'ar' ? 'text-right' : 'text-left'}`}>
-                  <p>{t('terms_intro', 'بمجرد استخدامك لموقع روايتي، أنت توافق على الشروط والسياسات التالية بصورة تامة ومباشرة:')}</p>
-                  <h3 className="font-bold">{t('terms_content_title', '1. المحتوى والتوليد بالذكاء الاصطناعي')}</h3>
-                  <p>{t('terms_content_desc', 'أنت المسؤول الوحيد عن المحتوى الذي تنشئه أو تطوره باستخدام أدوات الذكاء الاصطناعي الخاصة بنا.')}</p>
-                  <h3 className="font-bold">{t('terms_behavior_title', '2. السلوك المقبول الاستخدام')}</h3>
-                  <p>{t('terms_behavior_desc', 'يُمنع استخدام الموقع لنشر محتوى ينتهك حقوق الآخرين أو يحرض على العنف أو الإساءة.')}</p>
-                  <h3 className="font-bold text-red-600">{t('terms_liability_title', '3. الإخلاء والتنازل عن الملاحقة القضائية')}</h3>
-                  <p className="bg-red-50 border border-red-200 p-3 rounded-lg text-xs leading-relaxed font-semibold">{t('terms_liability_desc', 'بمجرد استخدامك لمنصة روايتي، أنت تعلن موافقتك التامة على هذه الشروط، وتتعهد بصورة نهائية بعدم رفع أي قضية أو دعوى قضائية أو مطالبات مالية أو قانونية ضد موقع روايتي أو مالكيه أو مشغليه تحت أي ظرف من الظروف.')}</p>
-                </div>
-              }
-            />
+            <TermsOfServiceView onBack={() => setView('explore')} />
           )}
 
           {view === 'about' && (
-            <LegalPage 
-              title={t('about_title', 'من نحن')}
-              onBack={() => setView('explore')}
-              content={
-                <div className={`space-y-4 ${i18n.language === 'ar' ? 'text-right' : 'text-left'}`}>
-                  <p>{t('about_intro', 'روايتي هي منصة إبداعية تهدف إلى تمكين الكتاب والقرّاء باستخدام أحدث تقنيات الذكاء الاصطناعي.')}</p>
-                  <p>{t('about_mission', 'مهمتنا هي كسر حواجز الإبداع ومساعدة الجميع على سرد قصصهم بطريقة ممتعة واحترافية.')}</p>
-                </div>
-              }
-
-            />
+            <AboutUsView onBack={() => setView('explore')} onNavigateView={setView} />
           )}
 
           {view === 'contact' && (
-            <LegalPage 
-              title={t('contact_us_title', 'اتصل بنا')}
-              onBack={() => setView('explore')}
-              content={
-                <div className={`space-y-4 ${i18n.language === 'ar' ? 'text-right' : 'text-left'}`}>
-                  <p>{t('contact_us_p1', 'يسعدنا دائماً سماع تعليقاتك واقتراحاتك.')}</p>
-                  <p>{t('contact_us_p2', 'يمكنك التواصل معنا عبر البريد الإلكتروني: ahmad.meshaalp@gmail.com')}</p>
-                </div>
-              }
-            />
+            <ContactUsView onBack={() => setView('explore')} />
+          )}
+
+          {view === 'faq' && (
+            <FaqView onBack={() => setView('explore')} onNavigateView={setView} />
           )}
 
           
@@ -5574,42 +5537,7 @@ const SearchView = ({ query, results, loading, onOpenNovel, onOpenProfile }: {
   );
 };
 
-const LegalPage = ({ title, content, onBack }: { title: string, content: React.ReactNode, onBack: () => void }) => {
-  const { t } = useTranslation();
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      <button onClick={onBack} className="mb-8 flex items-center gap-2 text-sm opacity-50 hover:opacity-100">
-        <ArrowLeft size={16} /> {t('back', 'العودة')}
-      </button>
-      <div className="monochrome-card prose prose-sm sm:prose max-w-none prose-headings:font-serif">
-        <h2 className="text-3xl font-serif font-bold mb-8">{title}</h2>
-        {content}
-      </div>
-    </motion.div>
-  );
-};
-
-const Footer = ({ setView }: { setView: (v: any) => void }) => {
-  const { t } = useTranslation();
-  const go = (v: string) => (e: React.MouseEvent) => {
-    e.preventDefault();
-    window.location.hash = v;
-    setView(v);
-  };
-  return (
-    <footer className="mt-20 border-t border-black/5 py-12 text-center text-[10px] font-bold uppercase tracking-[0.2em] opacity-30">
-      <div className="flex flex-wrap justify-center gap-6 mb-4">
-        <a href="#sitemap" onClick={go('sitemap')} className="hover:opacity-100 transition-opacity cursor-pointer flex items-center gap-1"><MapIcon size={12} /> {t('sitemap', 'خريطة الموقع')}</a>
-        <a href="#about" onClick={go('about')} className="hover:opacity-100 transition-opacity cursor-pointer">{t('about_us', 'من نحن')}</a>
-        <a href="#contact" onClick={go('contact')} className="hover:opacity-100 transition-opacity cursor-pointer">{t('contact_us', 'اتصل بنا')}</a>
-        <a href="#privacy" onClick={go('privacy')} className="hover:opacity-100 transition-opacity cursor-pointer">{t('privacy_policy', 'سياسة الخصوصية')}</a>
-        <a href="#terms" onClick={go('terms')} className="hover:opacity-100 transition-opacity cursor-pointer">{t('terms_of_service', 'شروط الاستخدام')}</a>
-        <a href="#api" onClick={go('api')} className="hover:opacity-100 transition-opacity cursor-pointer flex items-center gap-1 font-bold text-black opacity-80 hover:opacity-100"><Code size={12} /> {t('api_docs', '\u0627\u0644\u0640 API')}</a>
-      </div>
-      <p>© {new Date().getFullYear()} {t('app_name')} - {t('all_rights_reserved', 'جميع الحقوق محفوظة')}</p>
-    </footer>
-  );
-};
+// End of Views
 
 const CharacterManager = ({ novel, onBack, showToast }: { novel: Novel, onBack: () => void, showToast: (msg: string, type?: 'success' | 'error') => void }) => {
   const { t } = useTranslation();
