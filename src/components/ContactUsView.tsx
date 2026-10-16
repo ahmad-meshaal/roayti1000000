@@ -197,8 +197,8 @@ export const ContactUsView: React.FC<ContactUsViewProps> = ({ onBack }) => {
             <div className="space-y-3 text-sm">
               <div className="p-3 bg-gray-50 rounded-xl">
                 <span className="block text-xs text-gray-500 mb-0.5">{isAr ? 'البريد الإلكتروني الرسمي:' : 'Official Support Email:'}</span>
-                <a href="mailto:ahmad.meshaalp@gmail.com" className="font-mono font-bold text-black hover:underline break-all">
-                  ahmad.meshaalp@gmail.com
+                <a href="mailto:roayti0@gmail.com" className="font-mono font-bold text-black hover:underline break-all">
+                  roayti0@gmail.com
                 </a>
               </div>
 

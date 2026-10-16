@@ -153,8 +153,8 @@ export const TermsOfServiceView: React.FC<TermsOfServiceViewProps> = ({ onBack }
           </h2>
           <p className="text-sm text-gray-600 leading-relaxed">
             {isAr
-              ? 'تحتفظ إدارة المنصة بالحق في تعديل هذه الشروط في أي وقت. يُعتبر استمرار استخدامك للموقع بعد نشر أي تعديلات قبولاً صريحاً منك للشروط الجديدة. في حال وجود أي نزاع، نسعى لحله ودياً عبر قنوات الدعم الرسمية: ahmad.meshaalp@gmail.com.'
-              : 'We reserve the right to modify these Terms at any time. Continued use of Roayti following published updates constitutes acceptance of the revised Terms. Any disputes shall be resolved cooperatively via support: ahmad.meshaalp@gmail.com.'}
+              ? 'تحتفظ إدارة المنصة بالحق في تعديل هذه الشروط في أي وقت. يُعتبر استمرار استخدامك للموقع بعد نشر أي تعديلات قبولاً صريحاً منك للشروط الجديدة. في حال وجود أي نزاع، نسعى لحله ودياً عبر قنوات الدعم الرسمية: roayti0@gmail.com.'
+              : 'We reserve the right to modify these Terms at any time. Continued use of Roayti following published updates constitutes acceptance of the revised Terms. Any disputes shall be resolved cooperatively via support: roayti0@gmail.com.'}
           </p>
         </section>
 

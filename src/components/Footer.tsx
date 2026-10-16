@@ -133,7 +133,7 @@ export const Footer: React.FC<FooterProps> = ({ setView }) => {
                 </a>
               </div>
               <div className="text-[11px] text-gray-500 pt-1 font-mono">
-                ahmad.meshaalp@gmail.com
+                roayti0@gmail.com
               </div>
             </div>
           </div>

@@ -233,7 +233,7 @@ export const PrivacyPolicyView: React.FC<PrivacyPolicyViewProps> = ({ onBack }) 
           </p>
           <div className="text-sm font-medium text-gray-900 flex flex-wrap gap-4 pt-1">
             <span className="flex items-center gap-1.5 font-mono text-xs bg-white px-3 py-1.5 rounded-lg border border-gray-200">
-              ✉️ ahmad.meshaalp@gmail.com
+              ✉️ roayti0@gmail.com
             </span>
             <span className="flex items-center gap-1.5 font-mono text-xs bg-white px-3 py-1.5 rounded-lg border border-gray-200">
               🌐 https://roayti.com

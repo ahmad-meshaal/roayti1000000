@@ -359,7 +359,7 @@ const resources = {
       "error_deleting_comment": "فشل حذف التعليق.",
       "contact_us_title": "اتصل بنا",
       "contact_us_p1": "يسعدنا دائماً سماع تعليقاتك واقتراحاتك.",
-      "contact_us_p2": "يمكنك التواصل معنا عبر البريد الإلكتروني: ahmad.meshaalp@gmail.com"
+      "contact_us_p2": "يمكنك التواصل معنا عبر البريد الإلكتروني: roayti0@gmail.com"
     }
   },
   en: {
@@ -718,7 +718,7 @@ const resources = {
       "error_deleting_comment": "Failed to delete comment.",
       "contact_us_title": "Contact Us",
       "contact_us_p1": "We always love hearing your comments and suggestions.",
-      "contact_us_p2": "You can contact us via email: ahmad.meshaalp@gmail.com"
+      "contact_us_p2": "You can contact us via email: roayti0@gmail.com"
     }
   }
 };
