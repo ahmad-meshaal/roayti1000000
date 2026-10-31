@@ -26,6 +26,7 @@ import { ContactUsView } from './components/ContactUsView';
 import { TermsOfServiceView } from './components/TermsOfServiceView';
 import { FaqView } from './components/FaqView';
 import { Footer } from './components/Footer';
+import { NotificationBell } from './components/NotificationBell';
 
 // --- Error Handling & Boundary ---
 
@@ -816,13 +817,16 @@ const ProfileView = ({
             </button>
           )}
           {currentUserId && currentUserId === uid && (
-            <button 
-              onClick={() => setView('settings')}
-              className="monochrome-button-outline p-2 rounded-full active:scale-90"
-              title={t('settings')}
-            >
-              <Settings size={16} />
-            </button>
+            <>
+              <NotificationBell currentUserId={effectiveUserId} userDisplayName={profile.displayName} novels={userNovels} follows={follows} onNavigateView={(v) => setView(v)} isMobileProfile={true} />
+              <button 
+                onClick={() => setView('settings')}
+                className="monochrome-button-outline p-2 rounded-full active:scale-90"
+                title={t('settings')}
+              >
+                <Settings size={16} />
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -2065,6 +2069,7 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
                 {!(view === 'profile' && selectedProfileUid && selectedProfileUid !== effectiveUserId) && (
                   <button onClick={() => setView('settings')} className={`transition-all ${view === 'settings' ? 'font-bold' : 'opacity-40 hover:opacity-100'}`}><Settings size={18} /></button>
                 )}
+                <NotificationBell currentUserId={effectiveUserId} userDisplayName={userProfile?.displayName} novels={novels} follows={follows} onNavigateView={(v) => setView(v)} />
                 <div className="h-4 w-px bg-black/5"></div>
                 <button 
                   onClick={() => changeLanguage(i18n.language === 'ar' ? 'en' : 'ar')}
