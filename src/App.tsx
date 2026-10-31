@@ -818,7 +818,7 @@ const ProfileView = ({
           )}
           {currentUserId && currentUserId === uid && (
             <>
-              <NotificationBell currentUserId={effectiveUserId} userDisplayName={profile.displayName} novels={userNovels} follows={follows} onNavigateView={(v) => setView(v)} isMobileProfile={true} />
+              <NotificationBell currentUserId={currentUserId} userDisplayName={profile?.displayName || t('unknown_author')} novels={userNovels || []} follows={[]} onNavigateView={(v) => setView(v)} isMobileProfile={true} />
               <button 
                 onClick={() => setView('settings')}
                 className="monochrome-button-outline p-2 rounded-full active:scale-90"

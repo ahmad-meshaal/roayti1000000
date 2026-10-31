@@ -20,7 +20,7 @@ export interface AppNotification {
 }
 
 interface NotificationBellProps {
-  currentUserId?: string;
+  currentUserId?: string | null;
   userDisplayName?: string;
   novels?: Novel[];
   follows?: Follow[];
@@ -44,22 +44,29 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const storageKey = currentUserId 
-    ? `roayti_notifications_${currentUserId}` 
+  const safeUserId = currentUserId || '';
+  const storageKey = safeUserId 
+    ? `roayti_notifications_${safeUserId}` 
     : 'roayti_notifications_guest';
 
-  // Load and generate dynamic notifications
+  // Load and generate dynamic notifications with bulletproof guards
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(storageKey);
+      const saved = typeof localStorage !== 'undefined' ? localStorage.getItem(storageKey) : null;
       let list: AppNotification[] = saved ? JSON.parse(saved) : [];
+      if (!Array.isArray(list)) list = [];
       const now = Date.now();
       let updated = false;
 
+      // Safe arrays
+      const safeNovels = Array.isArray(novels) ? novels : [];
+      const safeFollows = Array.isArray(follows) ? follows : [];
+      const displayName = userDisplayName || (isAr ? 'مبدع روايتي' : 'Roayti Creator');
+
       // 1. Weekly Welcome Message (every 7 days = 7 * 24 * 60 * 60 * 1000 ms)
       const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-      const lastWelcomeKey = `roayti_last_welcome_${currentUserId || 'guest'}`;
-      const lastWelcomeTime = parseInt(localStorage.getItem(lastWelcomeKey) || '0', 10);
+      const lastWelcomeKey = `roayti_last_welcome_${safeUserId || 'guest'}`;
+      const lastWelcomeTime = parseInt((typeof localStorage !== 'undefined' ? localStorage.getItem(lastWelcomeKey) : '0') || '0', 10);
 
       if (!lastWelcomeTime || now - lastWelcomeTime >= SEVEN_DAYS_MS) {
         const welcomeNotif: AppNotification = {
@@ -67,23 +74,25 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
           type: 'welcome_weekly',
           titleAr: 'مرحباً بك مجدداً في روايتي! ✨',
           titleEn: 'Welcome back to Roayti! ✨',
-          messageAr: `أهلاً بك يا ${userDisplayName}! أسبوع أدبي ملهم جديد بانتظارك لكتابة فصول جديدة أو استكشاف أحدث الروايات والقصص.`,
-          messageEn: `Welcome back, ${userDisplayName}! A new inspiring week awaits you to craft new chapters or explore the latest trending novels.`,
+          messageAr: `أهلاً بك يا ${displayName}! أسبوع أدبي ملهم جديد بانتظارك لكتابة فصول جديدة أو استكشاف أحدث الروايات والقصص.`,
+          messageEn: `Welcome back, ${displayName}! A new inspiring week awaits you to craft new chapters or explore the latest trending novels.`,
           createdAt: now,
           read: false,
           actionView: 'explore'
         };
         list = [welcomeNotif, ...list.filter(n => n.type !== 'welcome_weekly')];
-        localStorage.setItem(lastWelcomeKey, now.toString());
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(lastWelcomeKey, now.toString());
+        }
         updated = true;
       }
 
       // 2. Follower milestone notification (if user has followers)
-      if (currentUserId) {
-        const userFollowers = follows.filter(f => f.followedUid === currentUserId);
+      if (safeUserId && safeFollows.length > 0) {
+        const userFollowers = safeFollows.filter(f => f && f.followedUid === safeUserId);
         if (userFollowers.length > 0) {
-          const followerKey = `roayti_last_follower_count_${currentUserId}`;
-          const lastCount = parseInt(localStorage.getItem(followerKey) || '0', 10);
+          const followerKey = `roayti_last_follower_count_${safeUserId}`;
+          const lastCount = parseInt((typeof localStorage !== 'undefined' ? localStorage.getItem(followerKey) : '0') || '0', 10);
 
           if (userFollowers.length > lastCount) {
             const diff = userFollowers.length - lastCount;
@@ -103,33 +112,40 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
               actionView: 'profile'
             };
             list = [followerNotif, ...list];
-            localStorage.setItem(followerKey, userFollowers.length.toString());
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem(followerKey, userFollowers.length.toString());
+            }
             updated = true;
           }
         }
+      }
 
-        // 3. Novel milestone: 1,000 views milestone (and other major thresholds)
-        const myNovels = novels.filter(n => n.authorUid === currentUserId);
+      // 3. Novel milestone: 1,000 views milestone (and other major thresholds)
+      if (safeUserId && safeNovels.length > 0) {
+        const myNovels = safeNovels.filter(n => n && n.authorUid === safeUserId);
         myNovels.forEach(novel => {
+          if (!novel) return;
           const views = novel.viewsCount || 0;
           if (views >= 1000) {
             const milestoneKey = `roayti_milestone_1k_${novel.id}`;
-            const alreadyCelebrated = localStorage.getItem(milestoneKey);
+            const alreadyCelebrated = typeof localStorage !== 'undefined' ? localStorage.getItem(milestoneKey) : null;
 
             if (!alreadyCelebrated) {
               const milestoneNotif: AppNotification = {
                 id: `milestone_1k_${novel.id}_${now}`,
                 type: 'novel_milestone',
-                titleAr: `تهانينا! رواية «${novel.title}» حققت 1,000 مشاهدة! 🎉`,
-                titleEn: `Milestone! "${novel.title}" reached 1,000 views! 🎉`,
-                messageAr: `وصلت روايتك «${novel.title}» إلى إنجاز رائع بتخطي حاجز 1,000 قراءة ومشاهدة. استمر في نشر الفصول ومشاركة إبداعك مع القراء!`,
-                messageEn: `Your novel "${novel.title}" just crossed the 1,000 views milestone! Keep publishing chapters and inspiring your readers!`,
+                titleAr: `تهانينا! رواية «${novel.title || ''}» حققت 1,000 مشاهدة! 🎉`,
+                titleEn: `Milestone! "${novel.title || ''}" reached 1,000 views! 🎉`,
+                messageAr: `وصلت روايتك «${novel.title || ''}» إلى إنجاز رائع بتخطي حاجز 1,000 قراءة ومشاهدة. استمر في نشر الفصول ومشاركة إبداعك مع القراء!`,
+                messageEn: `Your novel "${novel.title || ''}" just crossed the 1,000 views milestone! Keep publishing chapters and inspiring your readers!`,
                 createdAt: now,
                 read: false,
                 actionView: 'editor'
               };
               list = [milestoneNotif, ...list];
-              localStorage.setItem(milestoneKey, 'true');
+              if (typeof localStorage !== 'undefined') {
+                localStorage.setItem(milestoneKey, 'true');
+              }
               updated = true;
             }
           }
@@ -139,13 +155,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       // Limit list to last 20 notifications
       list = list.slice(0, 20);
       setNotifications(list);
-      if (updated || !saved) {
+      if (typeof localStorage !== 'undefined' && (updated || !saved)) {
         localStorage.setItem(storageKey, JSON.stringify(list));
       }
     } catch (e) {
       console.warn('Notification load error:', e);
     }
-  }, [currentUserId, userDisplayName, novels, follows, storageKey]);
+  }, [safeUserId, userDisplayName, novels, follows, storageKey, isAr]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -162,13 +178,15 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     };
   }, [isOpen]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter(n => n && !n.read).length;
 
   const markAllAsRead = () => {
     const updated = notifications.map(n => ({ ...n, read: true }));
     setNotifications(updated);
     try {
-      localStorage.setItem(storageKey, JSON.stringify(updated));
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+      }
     } catch (_) {}
   };
 
@@ -176,14 +194,18 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     const updated = notifications.map(n => n.id === id ? { ...n, read: true } : n);
     setNotifications(updated);
     try {
-      localStorage.setItem(storageKey, JSON.stringify(updated));
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+      }
     } catch (_) {}
   };
 
   const clearAllNotifications = () => {
     setNotifications([]);
     try {
-      localStorage.setItem(storageKey, JSON.stringify([]));
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(storageKey, JSON.stringify([]));
+      }
     } catch (_) {}
   };
 
@@ -285,6 +307,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
               </div>
             ) : (
               notifications.map((item) => {
+                if (!item) return null;
                 let Icon = Sparkles;
                 let iconColor = "text-purple-600 bg-purple-50";
 
