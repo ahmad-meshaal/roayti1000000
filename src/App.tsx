@@ -737,6 +737,45 @@ const ProfileView = ({
     }
   };
 
+  // Admin Banner States & Handlers
+  const [showAdminBannerModal, setShowAdminBannerModal] = useState(false);
+  const [adminBannerUrl, setAdminBannerUrl] = useState('');
+  const [adminBannerUploading, setAdminBannerUploading] = useState(false);
+  const adminBannerInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAdminUpdateBanner = async (newUrl: string) => {
+    if (!newUrl || !newUrl.trim()) {
+      showToast("يرجى اختيار صورة أو إدخال رابط صحيح للبانر", "error");
+      return;
+    }
+    setAdminBannerUploading(true);
+    try {
+      await api.updateUser(uid, { bannerURL: newUrl.trim() });
+      setProfile(prev => prev ? { ...prev, bannerURL: newUrl.trim() } : prev);
+      showToast("تم تحديث صورة البانر بنجاح بواسطة المدير", "success");
+      setShowAdminBannerModal(false);
+      setAdminBannerUrl('');
+    } catch (err: any) {
+      showToast("فشل تحديث البانر: " + (err.message || 'خطأ غير معروف'), "error");
+    } finally {
+      setAdminBannerUploading(false);
+    }
+  };
+
+  const handleAdminBannerFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAdminBannerUploading(true);
+    try {
+      const uploadedUrl = await uploadFile(file, `banners/admin_assigned/${uid}_${Date.now()}`);
+      setAdminBannerUrl(uploadedUrl);
+      await handleAdminUpdateBanner(uploadedUrl);
+    } catch (err: any) {
+      showToast("فشل رفع البانر: " + (err.message || 'خطأ'), "error");
+      setAdminBannerUploading(false);
+    }
+  };
+
   const handleDeleteUser = async () => {
     if (!isAdmin || !currentUserId) return;
     if (confirm("هل أنت متأكد من رغبتك في حذف هذا الحساب نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.")) {
@@ -850,6 +889,17 @@ const ProfileView = ({
           <div className="h-full w-full bg-gradient-to-br from-stone-100 via-stone-50 to-white" />
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-white/20" />
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setShowAdminBannerModal(true)}
+            className="absolute top-3 left-3 z-20 text-xs bg-black/80 hover:bg-black text-white font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md backdrop-blur-xs cursor-pointer active:scale-95 transition-all"
+            title="تغيير صورة البانر (المدير)"
+          >
+            <ImageIcon size={14} />
+            <span>تغيير البانر (المدير)</span>
+          </button>
+        )}
       </div>
 
       <div className="px-4 sm:px-6 py-6 sm:py-8">
@@ -948,6 +998,15 @@ const ProfileView = ({
                 >
                   <Camera size={14} />
                   <span>تغيير صورة الحساب (المدير)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAdminBannerModal(true)}
+                  className="text-xs bg-purple-600 hover:bg-purple-700 text-white font-bold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                  title="تغيير بانر الحساب بواسطة المدير"
+                >
+                  <ImageIcon size={14} />
+                  <span>تغيير البانر (المدير)</span>
                 </button>
                 <button
                   type="button"
@@ -1271,6 +1330,97 @@ const ProfileView = ({
               >
                 {adminPhotoUploading ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
                 <span>حفظ الصورة الجديدة</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Banner Change Modal */}
+      {showAdminBannerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-black/10 text-start space-y-4">
+            <div className="flex items-center justify-between border-b border-black/5 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-800 flex items-center justify-center">
+                  <ImageIcon size={16} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-gray-900">تغيير بانر الحساب (صلاحية المدير)</h3>
+                  <p className="text-[11px] text-gray-500">{profile.displayName}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAdminBannerModal(false)} className="p-1 rounded-lg hover:bg-black/5 text-gray-400 hover:text-black cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <p className="text-xs font-bold text-gray-700">معاينة البانر</p>
+                <div className="w-full h-28 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
+                  {adminBannerUrl || (profile as any).bannerURL ? (
+                    <img src={adminBannerUrl || (profile as any).bannerURL} alt="Banner Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xs text-gray-400">لا يوجد بانر مخصص حالياً</span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">رفع صورة بانر من الجهاز</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={adminBannerInputRef}
+                  onChange={handleAdminBannerFileChange}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => adminBannerInputRef.current?.click()}
+                  disabled={adminBannerUploading}
+                  className="w-full py-2.5 px-3 border border-dashed border-gray-300 hover:border-black rounded-xl text-xs font-bold text-gray-700 hover:bg-black/5 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {adminBannerUploading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
+                  <span>{adminBannerUploading ? 'جاري رفع وحفظ البانر...' : 'اختر ملف صورة للبانر من جهازك'}</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 my-2 text-[11px] text-gray-400">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span>أو ضع رابط بانر مباشر</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">رابط صورة البانر (URL)</label>
+                <input
+                  type="text"
+                  value={adminBannerUrl}
+                  onChange={(e) => setAdminBannerUrl(e.target.value)}
+                  placeholder="https://example.com/banner.jpg"
+                  className="w-full text-xs px-3 py-2 rounded-xl border border-black/10 focus:outline-none focus:border-black"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-black/5">
+              <button
+                type="button"
+                onClick={() => setShowAdminBannerModal(false)}
+                className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-black rounded-xl hover:bg-black/5 cursor-pointer"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAdminUpdateBanner(adminBannerUrl)}
+                disabled={adminBannerUploading || !adminBannerUrl.trim()}
+                className="monochrome-button text-xs px-5 py-2 rounded-xl flex items-center gap-2 !bg-purple-600 hover:!bg-purple-700 !text-white disabled:opacity-50 cursor-pointer"
+              >
+                {adminBannerUploading ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
+                <span>حفظ البانر الجديد</span>
               </button>
             </div>
           </div>
