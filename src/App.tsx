@@ -855,6 +855,16 @@ const ProfileView = ({
         <button onClick={onBack} className="flex items-center gap-2 text-xs sm:text-sm opacity-40 hover:opacity-100 transition-opacity">
           <ArrowLeft size={16} /> {t('back')}
         </button>
+          {isAdmin && (
+            <button 
+              type="button"
+              onClick={() => setShowAdminMsgModal(true)}
+              className="monochrome-button-outline !text-amber-800 !border-amber-300 bg-amber-50 hover:bg-amber-100 p-2 rounded-full active:scale-90 transition-all flex items-center justify-center shadow-xs cursor-pointer"
+              title="إرسال إشعار للحساب (صلاحية المدير)"
+            >
+              <Send size={16} />
+            </button>
+          )}
         <div className="flex gap-2">
           <button 
             onClick={handleShare}
@@ -926,6 +936,27 @@ const ProfileView = ({
               <span className="bg-red-100 text-red-600 text-[10px] px-3 py-1 uppercase tracking-widest leading-none font-bold whitespace-nowrap rounded-sm">
                 {t('admin_privileges_active', 'صلاحيات المسؤول نشطة')}
               </span>
+              {/* ADMIN CONTROLS: CHANGE USER PHOTO & SEND DIRECT NOTIFICATION */}
+              <div className="flex gap-2 flex-wrap justify-center my-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowAdminPhotoModal(true)}
+                  className="text-xs bg-amber-500 hover:bg-amber-600 text-white font-bold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                  title="تغيير صورة الحساب بواسطة المدير"
+                >
+                  <Camera size={14} />
+                  <span>تغيير صورة الحساب (المدير)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAdminMsgModal(true)}
+                  className="text-xs bg-black text-white hover:bg-black/80 font-bold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                  title="إرسال إشعار للحساب بواسطة المدير"
+                >
+                  <Send size={14} />
+                  <span>إرسال إشعار للحساب (المدير)</span>
+                </button>
+              </div>
               <div className="flex gap-1 flex-wrap justify-center">
                 {(['reader', 'writer', 'both', 'none'] as const).map((b) => {
                   const currentManual = (profile as any).manualBadge;
@@ -1081,6 +1112,168 @@ const ProfileView = ({
           </div>
         )}
       </div>
+      {/* Admin Message Modal */}
+      {showAdminMsgModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-black/10 text-start space-y-4">
+            <div className="flex items-center justify-between border-b border-black/5 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center">
+                  <Send size={15} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-gray-900">إرسال إشعار للحساب (صلاحية المدير)</h3>
+                  <p className="text-[11px] text-gray-500">إلى: {profile.displayName} (@{profile.username || 'user'})</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAdminMsgModal(false)} className="p-1 rounded-lg hover:bg-black/5 text-gray-400 hover:text-black">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">عنوان الإشعار</label>
+                <input
+                  type="text"
+                  value={adminMsgTitle}
+                  onChange={(e) => setAdminMsgTitle(e.target.value)}
+                  placeholder="مثال: رسالة خاصة من إدارة منصة روايتي"
+                  className="w-full text-xs px-3 py-2 rounded-xl border border-black/10 focus:outline-none focus:border-black"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">نص الرسالة / الإشعار</label>
+                <textarea
+                  rows={4}
+                  value={adminMsgBody}
+                  onChange={(e) => setAdminMsgBody(e.target.value)}
+                  placeholder="اكتب الرسالة التي ستصل للمستخدم في جرس الإشعارات..."
+                  className="w-full text-xs px-3 py-2 rounded-xl border border-black/10 focus:outline-none focus:border-black resize-none"
+                />
+              </div>
+
+              <p className="text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                💡 سيصل هذا الإشعار فوراً في جرس إشعارات المستخدم وموضحاً أنه رسالة رسمية من إدارة منصة روايتي.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-black/5">
+              <button
+                type="button"
+                onClick={() => setShowAdminMsgModal(false)}
+                className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-black rounded-xl hover:bg-black/5"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={handleSendAdminMessage}
+                disabled={adminMsgSending || !adminMsgBody.trim()}
+                className="monochrome-button text-xs px-5 py-2 rounded-xl flex items-center gap-2 !bg-amber-600 hover:!bg-amber-700 !text-white disabled:opacity-50 cursor-pointer"
+              >
+                {adminMsgSending ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
+                <span>{adminMsgSending ? 'جاري الإرسال...' : 'إرسال الإشعار الآن'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Photo Change Modal */}
+      {showAdminPhotoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-black/10 text-start space-y-4">
+            <div className="flex items-center justify-between border-b border-black/5 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center">
+                  <Camera size={16} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-gray-900">تغيير صورة الحساب (صلاحية المدير)</h3>
+                  <p className="text-[11px] text-gray-500">{profile.displayName}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAdminPhotoModal(false)} className="p-1 rounded-lg hover:bg-black/5 text-gray-400 hover:text-black">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-4 bg-gray-50 p-3 rounded-xl border border-black/5">
+                <div className="w-16 h-16 rounded-full overflow-hidden bg-white border border-black/10 flex items-center justify-center shrink-0">
+                  {adminPhotoUrl || profile.photoURL ? (
+                    <img src={adminPhotoUrl || profile.photoURL} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-2xl font-bold opacity-30">?</span>
+                  )}
+                </div>
+                <div className="text-xs space-y-1">
+                  <p className="font-bold text-gray-800">معاينة الصورة الحالية / الجديدة</p>
+                  <p className="text-[11px] text-gray-500">يمكنك رفع صورة جديدة من جهازك أو وضع رابط مباشر.</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">رفع صورة من الجهاز</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={adminPhotoInputRef}
+                  onChange={handleAdminPhotoFileChange}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => adminPhotoInputRef.current?.click()}
+                  disabled={adminPhotoUploading}
+                  className="w-full py-2.5 px-3 border border-dashed border-gray-300 hover:border-black rounded-xl text-xs font-bold text-gray-700 hover:bg-black/5 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {adminPhotoUploading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
+                  <span>{adminPhotoUploading ? 'جاري رفع وحفظ الصورة...' : 'اختر ملف صورة من جهازك'}</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 my-2 text-[11px] text-gray-400">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span>أو ضع رابط صورة مباشر</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">رابط الصورة (URL)</label>
+                <input
+                  type="text"
+                  value={adminPhotoUrl}
+                  onChange={(e) => setAdminPhotoUrl(e.target.value)}
+                  placeholder="https://example.com/avatar.jpg"
+                  className="w-full text-xs px-3 py-2 rounded-xl border border-black/10 focus:outline-none focus:border-black"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-black/5">
+              <button
+                type="button"
+                onClick={() => setShowAdminPhotoModal(false)}
+                className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-black rounded-xl hover:bg-black/5"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAdminUpdatePhoto(adminPhotoUrl)}
+                disabled={adminPhotoUploading || !adminPhotoUrl.trim()}
+                className="monochrome-button text-xs px-5 py-2 rounded-xl flex items-center gap-2 !bg-amber-600 hover:!bg-amber-700 !text-white disabled:opacity-50 cursor-pointer"
+              >
+                {adminPhotoUploading ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
+                <span>حفظ الصورة الجديدة</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>{/* end px-4 content */}
     </motion.div>
   );
@@ -5162,6 +5355,106 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin, o
       setTimeout(() => setSuccess(false), 3000);
     } catch (e: any) {
       console.error("Save error:", e);
+
+  // Admin Control Center States
+  const [adminNotifyMode, setAdminNotifyMode] = useState<'broadcast' | 'direct'>('direct');
+  const [adminNotifyTitle, setAdminNotifyTitle] = useState('رسالة من إدارة منصة روايتي');
+  const [adminNotifyBody, setAdminNotifyBody] = useState('');
+  const [adminNotifySending, setAdminNotifySending] = useState(false);
+  const [adminTargetUser, setAdminTargetUser] = useState<any>(null);
+
+  const [adminUserQuery, setAdminUserQuery] = useState('');
+  const [adminSearchResults, setAdminSearchResults] = useState<any[]>([]);
+  const [adminSearching, setAdminSearching] = useState(false);
+
+  // Photo management state for admin
+  const [adminPhotoTargetUid, setAdminPhotoTargetUid] = useState<string | null>(null);
+  const [adminNewPhotoUrl, setAdminNewPhotoUrl] = useState('');
+  const [adminPhotoUploading, setAdminPhotoUploading] = useState(false);
+  const adminFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAdminSearchUsers = async (q: string) => {
+    setAdminUserQuery(q);
+    if (!q.trim()) {
+      setAdminSearchResults([]);
+      return;
+    }
+    setAdminSearching(true);
+    try {
+      const results = await api.getUsers(q.trim());
+      setAdminSearchResults(Array.isArray(results) ? results : []);
+    } catch (_) {
+      setAdminSearchResults([]);
+    } finally {
+      setAdminSearching(false);
+    }
+  };
+
+  const handleSendAdminNotification = async () => {
+    if (!adminNotifyTitle.trim() || !adminNotifyBody.trim()) {
+      showToast('يرجى ملء عنوان ونص الرسالة', 'error');
+      return;
+    }
+    if (adminNotifyMode === 'direct' && !adminTargetUser) {
+      showToast('يرجى اختيار الحساب المستهدف لإرسال الإشعار إليه', 'error');
+      return;
+    }
+
+    setAdminNotifySending(true);
+    try {
+      const res = await api.sendAdminNotification({
+        adminEmail: 'ahmad.meshaal.2040@gmail.com',
+        targetUid: adminNotifyMode === 'direct' ? adminTargetUser.uid : undefined,
+        sendToAll: adminNotifyMode === 'broadcast',
+        title: adminNotifyTitle.trim(),
+        body: adminNotifyBody.trim(),
+        type: 'admin_message',
+        actorName: 'إدارة روايتي (المدير)'
+      });
+      showToast(res.message || 'تم إرسال الإشعار بنجاح!', 'success');
+      setAdminNotifyBody('');
+      if (adminNotifyMode === 'direct') setAdminTargetUser(null);
+    } catch (err: any) {
+      showToast('فشل إرسال الإشعار: ' + (err.message || 'خطأ غير معروف'), 'error');
+    } finally {
+      setAdminNotifySending(false);
+    }
+  };
+
+  const handleAdminUpdateUserPhoto = async (targetUid: string, newPhoto: string) => {
+    if (!newPhoto || !newPhoto.trim()) {
+      showToast('يرجى إدخال رابط أو رفع صورة صحيحة', 'error');
+      return;
+    }
+    setAdminPhotoUploading(true);
+    try {
+      await api.updateUser(targetUid, { photoURL: newPhoto.trim() });
+      setAdminSearchResults(prev => prev.map(u => u.uid === targetUid ? { ...u, photoURL: newPhoto.trim() } : u));
+      if (adminTargetUser && adminTargetUser.uid === targetUid) {
+        setAdminTargetUser((prev: any) => ({ ...prev, photoURL: newPhoto.trim() }));
+      }
+      showToast('تم تحديث صورة الحساب بنجاح بواسطة المدير', 'success');
+      setAdminPhotoTargetUid(null);
+      setAdminNewPhotoUrl('');
+    } catch (err: any) {
+      showToast('فشل تحديث الصورة: ' + (err.message || 'خطأ'), 'error');
+    } finally {
+      setAdminPhotoUploading(false);
+    }
+  };
+
+  const handleAdminFileUpload = async (targetUid: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAdminPhotoUploading(true);
+    try {
+      const uploaded = await uploadFile(file, `avatars/admin_assigned/${targetUid}_${Date.now()}`);
+      await handleAdminUpdateUserPhoto(targetUid, uploaded);
+    } catch (err: any) {
+      showToast('فشل رفع الصورة: ' + (err.message || 'خطأ'), 'error');
+      setAdminPhotoUploading(false);
+    }
+  };
       const errorMsg = e instanceof Error ? e.message : String(e);
       let displayError = errorMsg;
       try {
@@ -5497,23 +5790,281 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin, o
         <p className="text-sm text-black/60">{t('app_name')} v1.0.0 - {t('ai_writing_platform')}</p>
       </div>
 
-      {profile.role === 'admin' && (
-        <div className="monochrome-card mb-8 border-red-500/20 bg-red-50/50">
-          <h3 className="mb-6 font-bold text-red-600 flex items-center gap-2">
-            <Settings size={18} /> AI Settings (Debug)
-          </h3>
-          <div className="space-y-4">
-            <p className="text-xs text-red-600/60 mb-4">
-              This section is only visible to admins. Use it to debug AI configurations.
+      {/* Admin Control Center for ahmad.meshaal.2040@gmail.com */}
+      {(isAdmin || profile.role === 'admin') && (
+        <div className="monochrome-card mb-8 border-amber-300 bg-amber-50/40 p-6 rounded-2xl shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200 pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-sm">
+                <Crown size={22} />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-gray-900 flex items-center gap-2">
+                  <span>لوحة تحكم المدير العام</span>
+                  <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-mono font-bold">
+                    ahmad.meshaal.2040@gmail.com
+                  </span>
+                </h3>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  إرسال الإشعارات إلى الحسابات والتحكم في صور ملفات المستخدمين
+                </p>
+              </div>
+            </div>
+            <span className="text-[11px] font-bold bg-amber-100 text-amber-800 px-3 py-1 rounded-full self-start sm:self-auto border border-amber-300">
+              صلاحية المدير نشطة ✓
+            </span>
+          </div>
+
+          {/* Section 1: Send Notifications */}
+          <div className="space-y-4 bg-white p-5 rounded-xl border border-amber-200/80 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <Send size={16} className="text-amber-600" />
+              <h4 className="font-bold text-sm text-gray-900">١. إرسال إشعار إلى الحسابات</h4>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setAdminNotifyMode('direct')}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                  adminNotifyMode === 'direct'
+                    ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                    : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                👤 إرسال لحساب محدد
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminNotifyMode('broadcast')}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                  adminNotifyMode === 'broadcast'
+                    ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                    : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                📢 إشعار عام لجميع الحسابات (Broadcast)
+              </button>
+            </div>
+
+            {adminNotifyMode === 'direct' && (
+              <div className="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                <label className="block text-xs font-bold text-gray-700">البحث عن الحساب المستهدف:</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={adminUserQuery}
+                    onChange={(e) => handleAdminSearchUsers(e.target.value)}
+                    placeholder="اكتب اسم الحساب أو اسم المستخدم للبحث..."
+                    className="w-full text-xs px-3 py-2 pr-8 rounded-lg border border-gray-300 focus:outline-none focus:border-black bg-white"
+                  />
+                  <Search size={14} className="absolute right-2.5 top-2.5 text-gray-400" />
+                </div>
+
+                {adminTargetUser && (
+                  <div className="flex items-center justify-between p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 mt-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-white border border-gray-200 flex items-center justify-center font-bold text-xs">
+                        {adminTargetUser.photoURL ? (
+                          <img src={adminTargetUser.photoURL} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          adminTargetUser.displayName?.[0] || '?'
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-emerald-950">{adminTargetUser.displayName}</p>
+                        <p className="text-[10px] text-emerald-700 font-mono">@{adminTargetUser.username || adminTargetUser.uid}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAdminTargetUser(null)}
+                      className="text-[11px] text-red-600 hover:underline font-bold cursor-pointer"
+                    >
+                      إلغاء التحديد
+                    </button>
+                  </div>
+                )}
+
+                {!adminTargetUser && adminSearchResults.length > 0 && (
+                  <div className="max-h-40 overflow-y-auto divide-y divide-gray-100 bg-white rounded-lg border border-gray-200 shadow-xs mt-1">
+                    {adminSearchResults.map((u) => (
+                      <div
+                        key={u.uid}
+                        onClick={() => setAdminTargetUser(u)}
+                        className="p-2 flex items-center justify-between hover:bg-amber-50 cursor-pointer text-xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center text-[10px] font-bold">
+                            {u.photoURL ? <img src={u.photoURL} alt="" className="w-full h-full object-cover" /> : (u.displayName?.[0] || '?')}
+                          </div>
+                          <span className="font-bold text-gray-900">{u.displayName}</span>
+                          <span className="text-[10px] text-gray-400 font-mono">(@{u.username || 'user'})</span>
+                        </div>
+                        <span className="text-[10px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded font-bold">تحديد</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">عنوان الإشعار</label>
+                <input
+                  type="text"
+                  value={adminNotifyTitle}
+                  onChange={(e) => setAdminNotifyTitle(e.target.value)}
+                  placeholder="عنوان الإشعار..."
+                  className="w-full text-xs px-3 py-2 rounded-xl border border-gray-300 focus:outline-none focus:border-black"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">نص الإشعار / الرسالة</label>
+                <textarea
+                  rows={3}
+                  value={adminNotifyBody}
+                  onChange={(e) => setAdminNotifyBody(e.target.value)}
+                  placeholder="نص الرسالة التي ستظهر في جرس الإشعارات..."
+                  className="w-full text-xs px-3 py-2 rounded-xl border border-gray-300 focus:outline-none focus:border-black resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[11px] text-gray-500">
+                  {adminNotifyMode === 'broadcast' ? '📢 سيتم إرسال الإشعار لجميع الحسابات في المنصة' : '👤 سيصل الإشعار للحساب المحدد'}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleSendAdminNotification}
+                  disabled={adminNotifySending || !adminNotifyBody.trim()}
+                  className="monochrome-button text-xs px-5 py-2 rounded-xl flex items-center gap-2 !bg-amber-600 hover:!bg-amber-700 !text-white disabled:opacity-50 cursor-pointer"
+                >
+                  {adminNotifySending ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
+                  <span>{adminNotifySending ? 'جاري الإرسال...' : 'إرسال الإشعار'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Manage and Change Users Profile Photos */}
+          <div className="space-y-4 bg-white p-5 rounded-xl border border-amber-200/80 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <Camera size={16} className="text-amber-600" />
+              <h4 className="font-bold text-sm text-gray-900">٢. تعديل وتغيير صور الأشخاص والمستخدمين</h4>
+            </div>
+            <p className="text-xs text-gray-500">
+              يمكنك البحث عن أي حساب على المنصة وتغيير صورته الشخصية مباشرة برفع ملف أو كتابة رابط.
             </p>
-            <div className="flex items-center justify-between border-b border-red-500/10 py-2">
-              <span className="text-xs font-bold">Current Model</span>
-              <span className="text-xs opacity-50 font-mono">gemini-3-flash-preview</span>
+
+            <div className="relative">
+              <input
+                type="text"
+                value={adminUserQuery}
+                onChange={(e) => handleAdminSearchUsers(e.target.value)}
+                placeholder="ابحث عن المستخدم بالاسم أو اسم المستخدم لتعديل صورته..."
+                className="w-full text-xs px-3 py-2.5 pr-8 rounded-xl border border-gray-300 focus:outline-none focus:border-black"
+              />
+              <Search size={15} className="absolute right-2.5 top-3 text-gray-400" />
             </div>
-            <div className="flex items-center justify-between border-b border-red-500/10 py-2">
-              <span className="text-xs font-bold">API Key Source</span>
-              <span className="text-xs opacity-50 font-mono">Environment Variable</span>
-            </div>
+
+            {adminSearchResults.length > 0 && (
+              <div className="space-y-3 max-h-96 overflow-y-auto divide-y divide-gray-100">
+                {adminSearchResults.map((u) => {
+                  const isEditingThis = adminPhotoTargetUid === u.uid;
+                  return (
+                    <div key={u.uid} className="pt-3 first:pt-0 space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center font-bold text-sm shrink-0">
+                            {u.photoURL ? (
+                              <img src={u.photoURL} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              u.displayName?.[0] || '?'
+                            )}
+                          </div>
+                          <div>
+                            <h5 className="font-bold text-xs text-gray-900">{u.displayName}</h5>
+                            <p className="text-[10px] text-gray-500 font-mono">@{u.username || 'user'} • UID: {u.uid.slice(0, 10)}...</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {onOpenProfile && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenProfile(u.uid)}
+                              className="text-[10px] px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 font-bold cursor-pointer"
+                            >
+                              عرض الملف
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isEditingThis) {
+                                setAdminPhotoTargetUid(null);
+                              } else {
+                                setAdminPhotoTargetUid(u.uid);
+                                setAdminNewPhotoUrl(u.photoURL || '');
+                              }
+                            }}
+                            className="text-[10px] px-3 py-1.5 rounded-lg bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-300 font-bold flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Camera size={13} />
+                            <span>{isEditingThis ? 'إغلاق' : 'تغيير الصورة'}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Photo editing inline panel */}
+                      {isEditingThis && (
+                        <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200 space-y-3 animate-in fade-in">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            ref={adminFileInputRef}
+                            onChange={(e) => handleAdminFileUpload(u.uid, e)}
+                            className="hidden"
+                          />
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <button
+                              type="button"
+                              onClick={() => adminFileInputRef.current?.click()}
+                              disabled={adminPhotoUploading}
+                              className="py-2 px-3 bg-white border border-dashed border-gray-300 hover:border-black rounded-lg text-xs font-bold text-gray-700 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
+                            >
+                              <Upload size={13} />
+                              <span>رفع صورة من الجهاز</span>
+                            </button>
+                            <div className="flex-1 flex gap-2">
+                              <input
+                                type="text"
+                                value={adminNewPhotoUrl}
+                                onChange={(e) => setAdminNewPhotoUrl(e.target.value)}
+                                placeholder="أو الصق رابط صورة مباشر (URL)..."
+                                className="flex-1 text-xs px-3 py-2 rounded-lg border border-gray-300 bg-white focus:outline-none focus:border-black"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleAdminUpdateUserPhoto(u.uid, adminNewPhotoUrl)}
+                                disabled={adminPhotoUploading || !adminNewPhotoUrl.trim()}
+                                className="monochrome-button text-xs px-4 py-2 rounded-lg !bg-amber-600 hover:!bg-amber-700 !text-white flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                              >
+                                {adminPhotoUploading ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
+                                <span>حفظ</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
