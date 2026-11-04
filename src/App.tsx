@@ -949,7 +949,7 @@ const ProfileView = ({
           )}
           {currentUserId && currentUserId === uid && (
             <>
-              <NotificationBell currentUserId={currentUserId} userDisplayName={profile?.displayName || t('unknown_author')} novels={userNovels || []} follows={[]} onNavigateView={(v) => setView(v)} isMobileProfile={true} />
+              <NotificationBell currentUserId={currentUserId} userDisplayName={profile?.displayName || t('unknown_author')} novels={userNovels || []} follows={[]} onNavigateView={(v, extraId) => { if (extraId && v === 'profile') { setSelectedProfileUid(extraId); } setView(v); }} isMobileProfile={true} />
               <button 
                 onClick={() => setView('settings')}
                 className="monochrome-button-outline p-2 rounded-full active:scale-90"

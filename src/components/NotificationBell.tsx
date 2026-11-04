@@ -9,7 +9,7 @@ import * as api from '../lib/api';
 
 export interface AppNotification {
   id: string;
-  type: 'welcome_weekly' | 'new_follower' | 'novel_milestone' | 'system' | 'admin_message';
+  type: 'welcome_weekly' | 'new_follower' | 'novel_milestone' | 'system' | 'admin_message' | 'admin_moderation_alert';
   titleAr: string;
   titleEn: string;
   messageAr: string;
@@ -19,6 +19,7 @@ export interface AppNotification {
   link?: string;
   actionView?: string;
   isServer?: boolean;
+  actorUid?: string;
 }
 
 interface NotificationBellProps {
@@ -161,7 +162,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
           if (Array.isArray(serverItems) && serverItems.length > 0) {
             const serverFormatted: AppNotification[] = serverItems.map((s: any) => ({
               id: s.id,
-              type: s.type === 'admin_message' ? 'admin_message' : 'system',
+              type: s.type || 'system',
               titleAr: s.title,
               titleEn: s.title,
               messageAr: s.body,
@@ -169,6 +170,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
               createdAt: s.createdAt ? new Date(s.createdAt).getTime() : now,
               read: !!s.read,
               isServer: true,
+              actorUid: s.actorUid || undefined,
             }));
 
             // Merge by unique ID
@@ -279,6 +281,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   const handleNotificationClick = (item: AppNotification) => {
     markSingleAsRead(item.id, item.isServer);
     setIsOpen(false);
+    if (item.type === 'admin_moderation_alert' && item.actorUid && onNavigateView) {
+      onNavigateView('profile', item.actorUid);
+      return;
+    }
     if (item.actionView && onNavigateView) {
       onNavigateView(item.actionView);
     }

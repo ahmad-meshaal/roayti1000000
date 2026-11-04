@@ -1,3 +1,4 @@
+import { checkImageForTabarrujAndNotifyAdmin } from '../lib/imageModeration';
 import { Router } from 'express';
 import { db } from '@workspace/db';
 import {
