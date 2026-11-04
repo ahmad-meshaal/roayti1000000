@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { db } from '@workspace/db';
 import { notificationsTable, usersTable } from '@workspace/db/schema';
-import { eq, desc, and, gte } from 'drizzle-orm';
+import { eq, desc, and, gte, inArray } from 'drizzle-orm';
 
 const router = Router();
+
+const ADMIN_EMAIL = 'ahmad.meshaal.2040@gmail.com';
 
 // GET /notifications?uid=...
 router.get('/notifications', async (req, res) => {
@@ -17,6 +19,117 @@ router.get('/notifications', async (req, res) => {
       .orderBy(desc(notificationsTable.createdAt))
       .limit(50);
     res.json(rows);
+  } catch (e: any) {
+    req.log.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /notifications — create a single notification
+router.post('/notifications', async (req, res) => {
+  try {
+    const { uid, title, body, type, actorUid, actorName, actorPhoto, novelId, novelTitle } = req.body;
+    if (!uid || !title) {
+      return res.status(400).json({ error: 'uid and title are required' });
+    }
+
+    const inserted = await db
+      .insert(notificationsTable)
+      .values({
+        uid,
+        title,
+        body: body || '',
+        type: type || 'general',
+        actorUid: actorUid || null,
+        actorName: actorName || null,
+        actorPhoto: actorPhoto || null,
+        novelId: novelId || null,
+        novelTitle: novelTitle || null,
+        read: false,
+        createdAt: new Date(),
+      })
+      .returning();
+
+    res.status(201).json(inserted[0]);
+  } catch (e: any) {
+    req.log.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /notifications/admin-send — Admin sends messages to accounts (single user or broadcast to all)
+router.post('/notifications/admin-send', async (req, res) => {
+  try {
+    const { adminEmail, targetUid, sendToAll, title, body, type, actorName } = req.body;
+
+    const isAuthorized = adminEmail && adminEmail.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Unauthorized: Only admin can send admin notifications' });
+    }
+
+    if (!title || !body) {
+      return res.status(400).json({ error: 'title and body are required' });
+    }
+
+    const notifType = type || 'admin_message';
+    const senderName = actorName || 'إدارة روايتي (المدير)';
+
+    if (sendToAll) {
+      // Broadcast to all users
+      const allUsers = await db.select({ uid: usersTable.uid }).from(usersTable);
+      if (!allUsers.length) {
+        return res.json({ success: true, count: 0, message: 'No users found' });
+      }
+
+      // Batch insert notifications
+      const valuesToInsert = allUsers.map((u: { uid: string }) => ({
+        uid: u.uid,
+        title,
+        body,
+        type: notifType,
+        actorName: senderName,
+        read: false,
+        createdAt: new Date(),
+      }));
+
+      // Insert in chunks of 100 to avoid payload overflow
+      const chunkSize = 100;
+      for (let i = 0; i < valuesToInsert.length; i += chunkSize) {
+        const chunk = valuesToInsert.slice(i, i + chunkSize);
+        await db.insert(notificationsTable).values(chunk);
+      }
+
+      return res.json({
+        success: true,
+        count: allUsers.length,
+        message: `تم إرسال الإشعار بنجاح إلى جميع الحسابات (${allUsers.length} حساب)`,
+      });
+    }
+
+    // Send to specific target user
+    if (!targetUid) {
+      return res.status(400).json({ error: 'targetUid is required when sendToAll is false' });
+    }
+
+    const inserted = await db
+      .insert(notificationsTable)
+      .values({
+        uid: targetUid,
+        title,
+        body,
+        type: notifType,
+        actorName: senderName,
+        read: false,
+        createdAt: new Date(),
+      })
+      .returning();
+
+    res.status(201).json({
+      success: true,
+      count: 1,
+      notification: inserted[0],
+      message: 'تم إرسال الإشعار إلى الحساب بنجاح',
+    });
   } catch (e: any) {
     req.log.error(e);
     res.status(500).json({ error: e.message });
@@ -46,6 +159,19 @@ router.put('/notifications/read-all', async (req, res) => {
       .update(notificationsTable)
       .set({ read: true })
       .where(eq(notificationsTable.uid, uid));
+    res.json({ success: true });
+  } catch (e: any) {
+    req.log.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE /notifications/:id
+router.delete('/notifications/:id', async (req, res) => {
+  try {
+    await db
+      .delete(notificationsTable)
+      .where(eq(notificationsTable.id, req.params.id));
     res.json({ success: true });
   } catch (e: any) {
     req.log.error(e);

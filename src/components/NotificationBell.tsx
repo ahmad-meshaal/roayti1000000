@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Bell, Check, Trash2, Heart, Users, Sparkles, TrendingUp, Calendar, 
-  ExternalLink, CheckCircle2, BookOpen, Clock, AlertCircle
+  ExternalLink, CheckCircle2, BookOpen, Clock, AlertCircle, ShieldAlert, Crown, MessageSquare
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Novel, Follow } from '../types';
+import * as api from '../lib/api';
 
 export interface AppNotification {
   id: string;
-  type: 'welcome_weekly' | 'new_follower' | 'novel_milestone' | 'system';
+  type: 'welcome_weekly' | 'new_follower' | 'novel_milestone' | 'system' | 'admin_message';
   titleAr: string;
   titleEn: string;
   messageAr: string;
@@ -17,6 +18,7 @@ export interface AppNotification {
   read: boolean;
   link?: string;
   actionView?: string;
+  isServer?: boolean;
 }
 
 interface NotificationBellProps {
@@ -49,8 +51,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     ? `roayti_notifications_${safeUserId}` 
     : 'roayti_notifications_guest';
 
-  // Load and generate dynamic notifications with bulletproof guards
-  useEffect(() => {
+  // Load and generate dynamic notifications with bulletproof guards & server sync
+  const loadNotifications = async () => {
     try {
       const saved = typeof localStorage !== 'undefined' ? localStorage.getItem(storageKey) : null;
       let list: AppNotification[] = saved ? JSON.parse(saved) : [];
@@ -152,8 +154,51 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
         });
       }
 
-      // Limit list to last 20 notifications
-      list = list.slice(0, 20);
+      // 4. Fetch Server-side notifications (Admin messages, system alerts)
+      if (safeUserId) {
+        try {
+          const serverItems = await api.getNotifications(safeUserId);
+          if (Array.isArray(serverItems) && serverItems.length > 0) {
+            const serverFormatted: AppNotification[] = serverItems.map((s: any) => ({
+              id: s.id,
+              type: s.type === 'admin_message' ? 'admin_message' : 'system',
+              titleAr: s.title,
+              titleEn: s.title,
+              messageAr: s.body,
+              messageEn: s.body,
+              createdAt: s.createdAt ? new Date(s.createdAt).getTime() : now,
+              read: !!s.read,
+              isServer: true,
+            }));
+
+            // Merge by unique ID
+            const existingIds = new Set(list.map(x => x.id));
+            const newServerItems = serverFormatted.filter(item => !existingIds.has(item.id));
+            
+            // Also update read status of existing server items
+            const serverStatusMap = new Map(serverFormatted.map(item => [item.id, item.read]));
+            list = list.map(item => {
+              if (serverStatusMap.has(item.id)) {
+                return { ...item, read: serverStatusMap.get(item.id)! };
+              }
+              return item;
+            });
+
+            if (newServerItems.length > 0) {
+              list = [...newServerItems, ...list];
+              updated = true;
+            }
+          }
+        } catch (serverErr) {
+          // Graceful fallback if server unavailable
+        }
+      }
+
+      // Sort by newest first
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      // Limit list to last 30 notifications
+      list = list.slice(0, 30);
       setNotifications(list);
       if (typeof localStorage !== 'undefined' && (updated || !saved)) {
         localStorage.setItem(storageKey, JSON.stringify(list));
@@ -161,7 +206,23 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     } catch (e) {
       console.warn('Notification load error:', e);
     }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+    // Poll for new admin notifications every 45 seconds if user is logged in
+    if (safeUserId) {
+      const interval = setInterval(loadNotifications, 45000);
+      return () => clearInterval(interval);
+    }
   }, [safeUserId, userDisplayName, novels, follows, storageKey, isAr]);
+
+  // When opening dropdown, reload notifications
+  useEffect(() => {
+    if (isOpen) {
+      loadNotifications();
+    }
+  }, [isOpen]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -180,22 +241,28 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 
   const unreadCount = notifications.filter(n => n && !n.read).length;
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
     const updated = notifications.map(n => ({ ...n, read: true }));
     setNotifications(updated);
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(storageKey, JSON.stringify(updated));
       }
+      if (safeUserId) {
+        await api.markAllNotificationsRead(safeUserId).catch(() => {});
+      }
     } catch (_) {}
   };
 
-  const markSingleAsRead = (id: string) => {
+  const markSingleAsRead = async (id: string, isServer?: boolean) => {
     const updated = notifications.map(n => n.id === id ? { ...n, read: true } : n);
     setNotifications(updated);
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(storageKey, JSON.stringify(updated));
+      }
+      if (isServer) {
+        await api.markNotificationRead(id).catch(() => {});
       }
     } catch (_) {}
   };
@@ -210,7 +277,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   };
 
   const handleNotificationClick = (item: AppNotification) => {
-    markSingleAsRead(item.id);
+    markSingleAsRead(item.id, item.isServer);
     setIsOpen(false);
     if (item.actionView && onNavigateView) {
       onNavigateView(item.actionView);
@@ -301,8 +368,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 </p>
                 <p className="text-[11px] text-gray-400 mt-1">
                   {isAr 
-                    ? 'ستظهر هنا رسائل الترحيب الأسبوعية وإشعارات المتابعين الجدد ومعالم القراءة.' 
-                    : 'Weekly welcomes, follower alerts, and reading milestones will appear here.'}
+                    ? 'ستظهر هنا رسائل الترحيب الأسبوعية، الرسائل الإدارية، وإشعارات المتابعين الجدد ومعالم القراءة.' 
+                    : 'Weekly welcomes, admin alerts, follower updates, and reading milestones will appear here.'}
                 </p>
               </div>
             ) : (
@@ -311,7 +378,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 let Icon = Sparkles;
                 let iconColor = "text-purple-600 bg-purple-50";
 
-                if (item.type === 'new_follower') {
+                if (item.type === 'admin_message') {
+                  Icon = Crown;
+                  iconColor = "text-amber-700 bg-amber-50 border border-amber-200";
+                } else if (item.type === 'new_follower') {
                   Icon = Users;
                   iconColor = "text-blue-600 bg-blue-50";
                 } else if (item.type === 'novel_milestone') {
@@ -327,7 +397,9 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                     key={item.id}
                     onClick={() => handleNotificationClick(item)}
                     className={`p-4 transition-colors cursor-pointer flex gap-3 text-start ${
-                      item.read ? 'bg-white hover:bg-black/[0.02]' : 'bg-emerald-50/30 hover:bg-emerald-50/50'
+                      item.type === 'admin_message'
+                        ? (item.read ? 'bg-amber-50/20 hover:bg-amber-50/40' : 'bg-amber-50/70 hover:bg-amber-50/90')
+                        : (item.read ? 'bg-white hover:bg-black/[0.02]' : 'bg-emerald-50/30 hover:bg-emerald-50/50')
                     }`}
                   >
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${iconColor}`}>
@@ -336,9 +408,16 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1 mb-1">
-                        <h4 className="text-xs font-bold text-gray-900 truncate">
-                          {isAr ? item.titleAr : item.titleEn}
-                        </h4>
+                        <div className="flex items-center gap-1.5 truncate">
+                          <h4 className="text-xs font-bold text-gray-900 truncate">
+                            {isAr ? item.titleAr : item.titleEn}
+                          </h4>
+                          {item.type === 'admin_message' && (
+                            <span className="shrink-0 text-[9px] bg-amber-500 text-white px-1.5 py-0.2 rounded font-bold shadow-xs">
+                              {isAr ? 'إدارة روايتي' : 'Admin'}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[10px] text-gray-400 shrink-0 font-mono">
                           {formatRelativeTime(item.createdAt)}
                         </span>
@@ -350,7 +429,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                     </div>
 
                     {!item.read && (
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 self-center" />
+                      <span className={`w-2 h-2 rounded-full shrink-0 self-center ${item.type === 'admin_message' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                     )}
                   </div>
                 );
@@ -361,7 +440,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
           {/* Footer status */}
           <div className="px-4 py-2 border-t border-black/5 bg-gray-50 text-center">
             <span className="text-[10px] text-gray-400">
-              {isAr ? 'تنبيهات فورية ومرحلية لنشاطك في منصة روايتي' : 'Real-time milestones & community alerts'}
+              {isAr ? 'تنبيهات فورية ورسائل الإدارة ونشاطك في منصة روايتي' : 'Real-time milestones, admin notices & community alerts'}
             </span>
           </div>
         </div>

@@ -94,6 +94,23 @@ export const createComment = (novelId: string, chapterId: string, data: any) =>
 export const deleteComment = (novelId: string, chapterId: string, commentId: string) =>
   req<any>(`/novels/${novelId}/chapters/${chapterId}/comments/${commentId}`, { method: 'DELETE' });
 
+// ─── Notifications ───────────────────────────────────────────────────────────
+export const getNotifications = (uid: string) => req<any[]>(`/notifications?uid=${encodeURIComponent(uid)}`);
+export const markNotificationRead = (id: string) => req<any>(`/notifications/${id}/read`, { method: 'PUT' });
+export const markAllNotificationsRead = (uid: string) => req<any>('/notifications/read-all', { method: 'PUT', body: JSON.stringify({ uid }) });
+export const deleteNotification = (id: string) => req<any>(`/notifications/${id}`, { method: 'DELETE' });
+export const createNotification = (data: { uid: string; title: string; body: string; type?: string }) =>
+  req<any>('/notifications', { method: 'POST', body: JSON.stringify(data) });
+export const sendAdminNotification = (data: {
+  adminEmail: string;
+  targetUid?: string;
+  sendToAll?: boolean;
+  title: string;
+  body: string;
+  type?: string;
+  actorName?: string;
+}) => req<any>('/notifications/admin-send', { method: 'POST', body: JSON.stringify(data) });
+
 // ─── Sitemap ──────────────────────────────────────────────────────────────────
 export const getSitemapData = () => req<any>('/sitemap-data');
 

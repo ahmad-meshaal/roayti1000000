@@ -12,11 +12,11 @@ var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-var __copyProps = (to, from, except, desc5) => {
+var __copyProps = (to, from, except, desc6) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc5 = __getOwnPropDesc(from, key)) || desc5.enumerable });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc6 = __getOwnPropDesc(from, key)) || desc6.enumerable });
   }
   return to;
 };
@@ -169,6 +169,11 @@ var init_schema = __esm({
       title: (0, import_pg_core.text)("title").notNull(),
       body: (0, import_pg_core.text)("body").notNull(),
       read: (0, import_pg_core.boolean)("read").default(false),
+      actorUid: (0, import_pg_core.text)("actor_uid"),
+      actorName: (0, import_pg_core.text)("actor_name"),
+      actorPhoto: (0, import_pg_core.text)("actor_photo"),
+      novelId: (0, import_pg_core.text)("novel_id"),
+      novelTitle: (0, import_pg_core.text)("novel_title"),
       createdAt: (0, import_pg_core.timestamp)("created_at").defaultNow()
     });
     insertUserSchema = (0, import_drizzle_zod.createInsertSchema)(usersTable);
@@ -733,18 +738,18 @@ var init_sitemap = __esm({
 });
 
 // server.ts
-var import_express16 = __toESM(require("express"), 1);
+var import_express17 = __toESM(require("express"), 1);
 var import_path2 = __toESM(require("path"), 1);
 var import_fs2 = __toESM(require("fs"), 1);
 var import_vite = require("vite");
 
 // api-server/src/app.ts
-var import_express15 = __toESM(require("express"), 1);
+var import_express16 = __toESM(require("express"), 1);
 var import_cors = __toESM(require("cors"), 1);
 var import_pino_http = __toESM(require("pino-http"), 1);
 
 // api-server/src/routes/index.ts
-var import_express14 = require("express");
+var import_express15 = require("express");
 
 // api-server/src/routes/health.ts
 var import_express = require("express");
@@ -2062,22 +2067,184 @@ router13.post("/external/novels/:novelId/chapters/batch", async (req, res) => {
 });
 var externalApi_default = router13;
 
-// api-server/src/routes/index.ts
+// api-server/src/routes/notifications.ts
+var import_express14 = require("express");
+init_src();
+init_schema();
+var import_drizzle_orm11 = require("drizzle-orm");
 var router14 = (0, import_express14.Router)();
-router14.use(health_default);
-router14.use(gemini_default);
-router14.use(upload_default);
-router14.use(users_default);
-router14.use(novels_default);
-router14.use(chapters_default);
-router14.use(follows_default);
-router14.use(library_default);
-router14.use(progress_default);
-router14.use(comments_default);
-router14.use(characters_default);
-router14.use(sitemap_default);
-router14.use(externalApi_default);
-var routes_default = router14;
+var ADMIN_EMAIL = "ahmad.meshaal.2040@gmail.com";
+router14.get("/notifications", async (req, res) => {
+  try {
+    const { uid } = req.query;
+    if (!uid) return res.status(400).json({ error: "uid required" });
+    const rows = await db.select().from(notificationsTable).where((0, import_drizzle_orm11.eq)(notificationsTable.uid, uid)).orderBy((0, import_drizzle_orm11.desc)(notificationsTable.createdAt)).limit(50);
+    res.json(rows);
+  } catch (e) {
+    req.log.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+router14.post("/notifications", async (req, res) => {
+  try {
+    const { uid, title, body, type, actorUid, actorName, actorPhoto, novelId, novelTitle } = req.body;
+    if (!uid || !title) {
+      return res.status(400).json({ error: "uid and title are required" });
+    }
+    const inserted = await db.insert(notificationsTable).values({
+      uid,
+      title,
+      body: body || "",
+      type: type || "general",
+      actorUid: actorUid || null,
+      actorName: actorName || null,
+      actorPhoto: actorPhoto || null,
+      novelId: novelId || null,
+      novelTitle: novelTitle || null,
+      read: false,
+      createdAt: /* @__PURE__ */ new Date()
+    }).returning();
+    res.status(201).json(inserted[0]);
+  } catch (e) {
+    req.log.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+router14.post("/notifications/admin-send", async (req, res) => {
+  try {
+    const { adminEmail, targetUid, sendToAll, title, body, type, actorName } = req.body;
+    const isAuthorized = adminEmail && adminEmail.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    if (!isAuthorized) {
+      return res.status(403).json({ error: "Unauthorized: Only admin can send admin notifications" });
+    }
+    if (!title || !body) {
+      return res.status(400).json({ error: "title and body are required" });
+    }
+    const notifType = type || "admin_message";
+    const senderName = actorName || "\u0625\u062F\u0627\u0631\u0629 \u0631\u0648\u0627\u064A\u062A\u064A (\u0627\u0644\u0645\u062F\u064A\u0631)";
+    if (sendToAll) {
+      const allUsers = await db.select({ uid: usersTable.uid }).from(usersTable);
+      if (!allUsers.length) {
+        return res.json({ success: true, count: 0, message: "No users found" });
+      }
+      const valuesToInsert = allUsers.map((u) => ({
+        uid: u.uid,
+        title,
+        body,
+        type: notifType,
+        actorName: senderName,
+        read: false,
+        createdAt: /* @__PURE__ */ new Date()
+      }));
+      const chunkSize = 100;
+      for (let i = 0; i < valuesToInsert.length; i += chunkSize) {
+        const chunk = valuesToInsert.slice(i, i + chunkSize);
+        await db.insert(notificationsTable).values(chunk);
+      }
+      return res.json({
+        success: true,
+        count: allUsers.length,
+        message: `\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u0628\u0646\u062C\u0627\u062D \u0625\u0644\u0649 \u062C\u0645\u064A\u0639 \u0627\u0644\u062D\u0633\u0627\u0628\u0627\u062A (${allUsers.length} \u062D\u0633\u0627\u0628)`
+      });
+    }
+    if (!targetUid) {
+      return res.status(400).json({ error: "targetUid is required when sendToAll is false" });
+    }
+    const inserted = await db.insert(notificationsTable).values({
+      uid: targetUid,
+      title,
+      body,
+      type: notifType,
+      actorName: senderName,
+      read: false,
+      createdAt: /* @__PURE__ */ new Date()
+    }).returning();
+    res.status(201).json({
+      success: true,
+      count: 1,
+      notification: inserted[0],
+      message: "\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u0625\u0644\u0649 \u0627\u0644\u062D\u0633\u0627\u0628 \u0628\u0646\u062C\u0627\u062D"
+    });
+  } catch (e) {
+    req.log.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+router14.put("/notifications/:id/read", async (req, res) => {
+  try {
+    await db.update(notificationsTable).set({ read: true }).where((0, import_drizzle_orm11.eq)(notificationsTable.id, req.params.id));
+    res.json({ success: true });
+  } catch (e) {
+    req.log.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+router14.put("/notifications/read-all", async (req, res) => {
+  try {
+    const { uid } = req.body;
+    if (!uid) return res.status(400).json({ error: "uid required" });
+    await db.update(notificationsTable).set({ read: true }).where((0, import_drizzle_orm11.eq)(notificationsTable.uid, uid));
+    res.json({ success: true });
+  } catch (e) {
+    req.log.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+router14.delete("/notifications/:id", async (req, res) => {
+  try {
+    await db.delete(notificationsTable).where((0, import_drizzle_orm11.eq)(notificationsTable.id, req.params.id));
+    res.json({ success: true });
+  } catch (e) {
+    req.log.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+router14.post("/notifications/welcome", async (req, res) => {
+  try {
+    const { uid, displayName } = req.body;
+    if (!uid) return res.status(400).json({ error: "uid required" });
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1e3);
+    const recent = await db.select().from(notificationsTable).where(
+      (0, import_drizzle_orm11.and)(
+        (0, import_drizzle_orm11.eq)(notificationsTable.uid, uid),
+        (0, import_drizzle_orm11.eq)(notificationsTable.type, "welcome"),
+        (0, import_drizzle_orm11.gte)(notificationsTable.createdAt, sevenDaysAgo)
+      )
+    ).limit(1);
+    if (recent.length) return res.json({ created: false });
+    const greetings = [
+      { title: "\u{1F44B} \u0623\u0647\u0644\u0627\u064B \u0648\u0633\u0647\u0644\u0627\u064B!", body: `\u0645\u0631\u062D\u0628\u0627\u064B ${displayName || ""} \u2014 \u064A\u0633\u0639\u062F\u0646\u0627 \u0648\u062C\u0648\u062F\u0643 \u0645\u0639\u0646\u0627 \u0641\u064A \u0631\u0648\u0627\u064A\u062A\u064A. \u0627\u0633\u062A\u0645\u0631 \u0641\u064A \u0643\u062A\u0627\u0628\u062A\u0643 \u0648\u0634\u0627\u0631\u0643 \u0625\u0628\u062F\u0627\u0639\u0643 \u0645\u0639 \u0627\u0644\u0639\u0627\u0644\u0645!` },
+      { title: "\u2728 \u0639\u062F\u062A \u0645\u0646 \u062C\u062F\u064A\u062F!", body: `\u0646\u0648\u0631 \u0627\u0644\u0645\u0643\u0627\u0646 ${displayName || ""} \u2014 \u0631\u0648\u0627\u064A\u062A\u064A \u062A\u0646\u062A\u0638\u0631 \u0625\u0628\u062F\u0627\u0639\u0643. \u0645\u0627\u0630\u0627 \u062A\u0643\u062A\u0628 \u0627\u0644\u064A\u0648\u0645\u061F` },
+      { title: "\u{1F4D6} \u062D\u064A\u0627\u0643 \u0627\u0644\u0644\u0647!", body: `\u064A\u0627 ${displayName || "\u0635\u062F\u064A\u0642"} \u0627\u0644\u0643\u062A\u0627\u0628\u0629 \u062A\u0646\u062A\u0638\u0631\u0643 \u2014 \u0623\u0641\u0643\u0627\u0631 \u062C\u062F\u064A\u062F\u0629 \u062A\u0648\u0644\u062F \u0643\u0644 \u064A\u0648\u0645. \u0623\u0637\u0644\u0642 \u0642\u0644\u0645\u0643!` },
+      { title: "\u{1F31F} \u0623\u0647\u0644\u0627\u064B \u0628\u0643!", body: `\u0645\u0631\u062D\u0628\u0627\u064B \u064A\u0627 ${displayName || ""} \u2014 \u0642\u0635\u062A\u0643 \u0627\u0644\u0642\u0627\u062F\u0645\u0629 \u0642\u062F \u062A\u063A\u064A\u0631 \u062D\u064A\u0627\u0629 \u0623\u062D\u062F\u0647\u0645. \u0644\u0627 \u062A\u062A\u0648\u0642\u0641 \u0639\u0646 \u0627\u0644\u0643\u062A\u0627\u0628\u0629!` }
+    ];
+    const g = greetings[Math.floor(Math.random() * greetings.length)];
+    const inserted = await db.insert(notificationsTable).values({ uid, type: "welcome", title: g.title, body: g.body, id: req.body.id || crypto.randomUUID() }).returning();
+    res.status(201).json({ created: true, notification: inserted[0] });
+  } catch (e) {
+    req.log.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+var notifications_default = router14;
+
+// api-server/src/routes/index.ts
+var router15 = (0, import_express15.Router)();
+router15.use(health_default);
+router15.use(gemini_default);
+router15.use(upload_default);
+router15.use(users_default);
+router15.use(novels_default);
+router15.use(chapters_default);
+router15.use(follows_default);
+router15.use(library_default);
+router15.use(progress_default);
+router15.use(comments_default);
+router15.use(characters_default);
+router15.use(sitemap_default);
+router15.use(externalApi_default);
+router15.use(notifications_default);
+var routes_default = router15;
 
 // api-server/src/lib/logger.ts
 var import_pino = __toESM(require("pino"), 1);
@@ -2092,7 +2259,7 @@ var logger = (0, import_pino.default)({
 
 // api-server/src/app.ts
 init_src();
-var app = (0, import_express15.default)();
+var app = (0, import_express16.default)();
 app.use(
   (0, import_pino_http.default)({
     logger,
@@ -2113,8 +2280,8 @@ app.use(
   })
 );
 app.use((0, import_cors.default)());
-app.use(import_express15.default.json({ limit: "15mb" }));
-app.use(import_express15.default.urlencoded({ extended: true, limit: "15mb" }));
+app.use(import_express16.default.json({ limit: "15mb" }));
+app.use(import_express16.default.urlencoded({ extended: true, limit: "15mb" }));
 app.use("/api", async (req, res, next) => {
   try {
     await ensureDbReady();
@@ -2129,9 +2296,9 @@ var app_default = app;
 init_sitemap();
 init_src();
 init_schema();
-var import_drizzle_orm11 = require("drizzle-orm");
+var import_drizzle_orm12 = require("drizzle-orm");
 async function startServer() {
-  const app2 = (0, import_express16.default)();
+  const app2 = (0, import_express17.default)();
   const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3e3;
   app2.get("/dist_complete.zip", (req, res) => {
     const filePath = import_path2.default.join(process.cwd(), "dist_complete.zip");
@@ -2201,7 +2368,7 @@ Sitemap: ${proto}://${host}/sitemap.xml
     app2.use(vite.middlewares);
   } else {
     const distPath = import_path2.default.join(process.cwd(), "dist");
-    app2.use(import_express16.default.static(distPath, { index: false }));
+    app2.use(import_express17.default.static(distPath, { index: false }));
     app2.get("*", async (req, res) => {
       try {
         const indexPath = import_path2.default.join(distPath, "index.html");
@@ -2212,7 +2379,7 @@ Sitemap: ${proto}://${host}/sitemap.xml
         }
         if (novelId) {
           try {
-            const rows = await db.select().from(novelsTable).where((0, import_drizzle_orm11.eq)(novelsTable.id, novelId)).limit(1);
+            const rows = await db.select().from(novelsTable).where((0, import_drizzle_orm12.eq)(novelsTable.id, novelId)).limit(1);
             if (rows.length > 0) {
               const novel = rows[0];
               if (novel.status !== "published") {

@@ -125,6 +125,11 @@ export const notificationsTable = pgTable('notifications', {
   title: text('title').notNull(),
   body: text('body').notNull(),
   read: boolean('read').default(false),
+  actorUid: text('actor_uid'),
+  actorName: text('actor_name'),
+  actorPhoto: text('actor_photo'),
+  novelId: text('novel_id'),
+  novelTitle: text('novel_title'),
   createdAt: timestamp('created_at').defaultNow(),
 });
 

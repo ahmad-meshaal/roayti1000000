@@ -666,6 +666,75 @@ const ProfileView = ({
   const [isDeletingUser, setIsDeletingUser] = useState(false);
   const [libraryCount, setLibraryCount] = useState(0);
 
+  // Admin Message & Photo States
+  const [showAdminMsgModal, setShowAdminMsgModal] = useState(false);
+  const [adminMsgTitle, setAdminMsgTitle] = useState('رسالة من إدارة روايتي');
+  const [adminMsgBody, setAdminMsgBody] = useState('');
+  const [adminMsgSending, setAdminMsgSending] = useState(false);
+
+  const [showAdminPhotoModal, setShowAdminPhotoModal] = useState(false);
+  const [adminPhotoUrl, setAdminPhotoUrl] = useState('');
+  const [adminPhotoUploading, setAdminPhotoUploading] = useState(false);
+  const adminPhotoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSendAdminMessage = async () => {
+    if (!adminMsgTitle.trim() || !adminMsgBody.trim()) {
+      showToast("يرجى كتابة عنوان ونص الرسالة", "error");
+      return;
+    }
+    setAdminMsgSending(true);
+    try {
+      await api.sendAdminNotification({
+        adminEmail: 'ahmad.meshaal.2040@gmail.com',
+        targetUid: uid,
+        title: adminMsgTitle.trim(),
+        body: adminMsgBody.trim(),
+        type: 'admin_message',
+        actorName: 'إدارة روايتي (المدير)'
+      });
+      showToast("تم إرسال الإشعار بنجاح إلى حساب المستخدم!", "success");
+      setShowAdminMsgModal(false);
+      setAdminMsgBody('');
+    } catch (err: any) {
+      showToast("فشل إرسال الإشعار: " + (err.message || 'خطأ غير معروف'), "error");
+    } finally {
+      setAdminMsgSending(false);
+    }
+  };
+
+  const handleAdminUpdatePhoto = async (newUrl: string) => {
+    if (!newUrl || !newUrl.trim()) {
+      showToast("يرجى اختيار صورة أو إدخال رابط صحيح", "error");
+      return;
+    }
+    setAdminPhotoUploading(true);
+    try {
+      await api.updateUser(uid, { photoURL: newUrl.trim() });
+      setProfile(prev => prev ? { ...prev, photoURL: newUrl.trim() } : prev);
+      showToast("تم تحديث صورة المستخدم بنجاح بواسطة المدير", "success");
+      setShowAdminPhotoModal(false);
+      setAdminPhotoUrl('');
+    } catch (err: any) {
+      showToast("فشل تحديث الصورة: " + (err.message || 'خطأ غير معروف'), "error");
+    } finally {
+      setAdminPhotoUploading(false);
+    }
+  };
+
+  const handleAdminPhotoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAdminPhotoUploading(true);
+    try {
+      const uploadedUrl = await uploadFile(file, `avatars/admin_assigned/${uid}_${Date.now()}`);
+      setAdminPhotoUrl(uploadedUrl);
+      await handleAdminUpdatePhoto(uploadedUrl);
+    } catch (err: any) {
+      showToast("فشل رفع الصورة: " + (err.message || 'خطأ'), "error");
+      setAdminPhotoUploading(false);
+    }
+  };
+
   const handleDeleteUser = async () => {
     if (!isAdmin || !currentUserId) return;
     if (confirm("هل أنت متأكد من رغبتك في حذف هذا الحساب نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.")) {
@@ -1459,7 +1528,7 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
   // Use Clerk user if enabled, otherwise Firebase user
   const effectiveUserId = isClerkEnabled ? clerkUser?.id : user?.uid;
   const effectiveEmail = isClerkEnabled ? clerkUser?.primaryEmailAddress?.emailAddress : user?.email;
-  const isAdmin = effectiveEmail === 'ahmad.meshaal.2040@gmail.com' || userProfile?.role === 'admin';
+  const isAdmin = (effectiveEmail?.toLowerCase() === 'ahmad.meshaal.2040@gmail.com') || (userProfile?.email?.toLowerCase() === 'ahmad.meshaal.2040@gmail.com') || (userProfile?.role === 'admin');
 
   const isPro = true;
   const [searching, setSearching] = useState(false);
@@ -5003,7 +5072,7 @@ const Editor = ({ novel, chapter, onBack, showToast, setConfirmModal, userProfil
   );
 };
 
-const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin }: { profile: UserProfile, onUpdateProfile: (data: any) => Promise<void>, showToast: (msg: string, type?: 'success' | 'error') => void, setView: (v: any) => void, isAdmin: boolean }) => {
+const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin, onOpenProfile }: { profile: UserProfile, onUpdateProfile: (data: any) => Promise<void>, showToast: (msg: string, type?: 'success' | 'error') => void, setView: (v: any) => void, isAdmin: boolean, onOpenProfile?: (uid: string) => void }) => {
   const { t, i18n } = useTranslation();
   const [displayName, setDisplayName] = useState(profile.displayName || '');
   const [username, setUsername] = useState(profile.username || '');
