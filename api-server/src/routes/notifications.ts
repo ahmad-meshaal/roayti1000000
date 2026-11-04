@@ -10,12 +10,7 @@ export const isAdminEmail = (email?: string | null): boolean => {
   const clean = String(email).trim().toLowerCase();
   return (
     clean === 'ahmad.meshaal.2040@gmail.com' ||
-    clean === 'ahnad.meshaal.2040@gmail.com' ||
-    clean.includes('meshaal.2040@gmail.com') ||
-    clean.includes('ahmad.meshaal') ||
-    clean.includes('ahnad.meshaal') ||
-    clean === 'ahmadmeshaall29@gmail.com' ||
-    clean === 'ahmad.meshaalp@gmail.com'
+    clean === 'ahnad.meshaal.2040@gmail.com'
   );
 };
 
@@ -74,9 +69,9 @@ router.post('/notifications/admin-send', async (req, res) => {
   try {
     const { adminEmail, targetUid, sendToAll, title, body, type, actorName, role } = req.body;
 
-    const isAuthorized = isAdminEmail(adminEmail) || role === 'admin';
+    const isAuthorized = isAdminEmail(adminEmail);
     if (!isAuthorized) {
-      return res.status(403).json({ error: 'Unauthorized: Only admin can send admin notifications' });
+      return res.status(403).json({ error: 'ممنوع: هذه الصلاحية محصورة حصراً بالمدير ahmad.meshaal.2040@gmail.com فقط' });
     }
 
     if (!title || !body) {

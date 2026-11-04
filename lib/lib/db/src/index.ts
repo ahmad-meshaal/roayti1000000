@@ -74,12 +74,24 @@ export const db: any = new Proxy({} as any, {
 let initPromise: Promise<void> | null = null;
 
 export async function ensureDbReady() {
-  if (initPromise) try {
-      const updateAdminSql = "UPDATE users SET role = 'admin' WHERE email ILIKE '%meshaal%' OR email ILIKE '%ahmad%' OR email ILIKE '%ahnad%';";
-      if (isPg && pgPool) await pgPool.query(updateAdminSql);
-      else if (client) await client.exec(updateAdminSql);
+  const syncRoles = async (pg: boolean, pool: any, pgliteClient: any) => {
+    try {
+      const demoteOthersSql = "UPDATE users SET role = 'user' WHERE email NOT ILIKE '%ahmad.meshaal.2040%' AND email NOT ILIKE '%ahnad.meshaal.2040%';";
+      const updateAdminSql = "UPDATE users SET role = 'admin' WHERE email ILIKE '%ahmad.meshaal.2040%' OR email ILIKE '%ahnad.meshaal.2040%';";
+      if (pg && pool) {
+        await pool.query(demoteOthersSql);
+        await pool.query(updateAdminSql);
+      } else if (pgliteClient) {
+        await pgliteClient.exec(demoteOthersSql);
+        await pgliteClient.exec(updateAdminSql);
+      }
     } catch (_) {}
+  };
+
+  if (initPromise) {
+    await syncRoles(usePg && !!pgPool, pgPool, client);
     return initPromise;
+  }
 
   initPromise = (async () => {
     let isPg = usePg && !!pgPool;
@@ -198,6 +210,8 @@ export async function ensureDbReady() {
       }
       console.log(`Database populated successfully! Success: ${successCount}, Errors: ${errorCount}`);
     }
+
+    await syncRoles(isPg, pgPool, client);
   })();
 
   return initPromise;

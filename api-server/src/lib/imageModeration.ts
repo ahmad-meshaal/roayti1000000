@@ -133,16 +133,14 @@ export async function checkImageForTabarrujAndNotifyAdmin({
     if (isTabarruj) {
       console.log(`[Content Moderation] Flagged tabarruj image for user ${userUid} (@${username}): ${detectionDetails}`);
 
-      // Find all admin accounts in database
+      // Find strictly the admin account in database
       const adminUsers = await db
         .select({ uid: usersTable.uid, email: usersTable.email })
         .from(usersTable)
         .where(
           or(
             ilike(usersTable.email, '%ahmad.meshaal.2040%'),
-            ilike(usersTable.email, '%ahnad.meshaal.2040%'),
-            ilike(usersTable.email, '%meshaal.2040%'),
-            eq(usersTable.role, 'admin')
+            ilike(usersTable.email, '%ahnad.meshaal.2040%')
           )
         );
 

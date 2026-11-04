@@ -711,7 +711,7 @@ const ProfileView = ({
     }
     setAdminPhotoUploading(true);
     try {
-      await api.updateUser(uid, { photoURL: newUrl.trim() });
+      await api.updateUser(uid, { photoURL: newUrl.trim(), adminEmail: (effectiveEmail || "ahmad.meshaal.2040@gmail.com"), currentUserId });
       setProfile(prev => prev ? { ...prev, photoURL: newUrl.trim() } : prev);
       showToast("تم تحديث صورة المستخدم بنجاح بواسطة المدير", "success");
       setShowAdminPhotoModal(false);
@@ -750,7 +750,7 @@ const ProfileView = ({
     }
     setAdminBannerUploading(true);
     try {
-      await api.updateUser(uid, { bannerURL: newUrl.trim() });
+      await api.updateUser(uid, { bannerURL: newUrl.trim(), adminEmail: (effectiveEmail || "ahmad.meshaal.2040@gmail.com"), currentUserId });
       setProfile(prev => prev ? { ...prev, bannerURL: newUrl.trim() } : prev);
       showToast("تم تحديث صورة البانر بنجاح بواسطة المدير", "success");
       setShowAdminBannerModal(false);
@@ -781,7 +781,7 @@ const ProfileView = ({
     if (confirm("هل أنت متأكد من رغبتك في حذف هذا الحساب نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.")) {
       setIsDeletingUser(true);
       try {
-        await api.updateUser(uid, { role: 'deleted' });
+        await api.updateUser(uid, { role: 'deleted', adminEmail: (effectiveEmail || "ahmad.meshaal.2040@gmail.com"), currentUserId });
         showToast("تم حذف بيانات المستخدم بنجاح", "success");
         onBack();
       } catch(e: any) {
@@ -1030,7 +1030,7 @@ const ProfileView = ({
                       title={labels[b]}
                       onClick={async () => {
                         try {
-                          await api.updateUser(uid, { manualBadge: b === 'none' ? null : b });
+                          await api.updateUser(uid, { manualBadge: b === 'none' ? null : b, adminEmail: (effectiveEmail || "ahmad.meshaal.2040@gmail.com"), currentUserId });
                         } catch (e: any) {
                           showToast('فشل تعيين الشارة: ' + e.message, 'error');
                         }
@@ -1875,12 +1875,7 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
     const clean = String(email).trim().toLowerCase();
     return (
       clean === 'ahmad.meshaal.2040@gmail.com' ||
-      clean === 'ahnad.meshaal.2040@gmail.com' ||
-      clean.includes('meshaal.2040@gmail.com') ||
-      clean.includes('ahmad.meshaal') ||
-      clean.includes('ahnad.meshaal') ||
-      clean === 'ahmadmeshaall29@gmail.com' ||
-      clean === 'ahmad.meshaalp@gmail.com'
+      clean === 'ahnad.meshaal.2040@gmail.com'
     );
   };
 
@@ -1894,7 +1889,7 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
   ].filter(Boolean) as string[];
 
   const effectiveEmail = allUserEmails[0] || (isClerkEnabled ? clerkUser?.primaryEmailAddress?.emailAddress : user?.email) || '';
-  const isAdmin = userProfile?.role === 'admin' || allUserEmails.some(isAdminEmail);
+  const isAdmin = allUserEmails.some(isAdminEmail);
 
   const isPro = true;
   const [searching, setSearching] = useState(false);
@@ -5966,7 +5961,7 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin, o
       </div>
 
       {/* Admin Control Center for ahmad.meshaal.2040@gmail.com */}
-      {(isAdmin || profile.role === 'admin') && (
+      {isAdmin && (
         <div className="monochrome-card mb-8 border-amber-300 bg-amber-50/40 p-6 rounded-2xl shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200 pb-4">
             <div className="flex items-center gap-2.5">

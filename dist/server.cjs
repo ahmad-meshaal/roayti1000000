@@ -201,16 +201,27 @@ function initPGlite() {
   return (0, import_pglite2.drizzle)(client, { schema: schema_exports });
 }
 async function ensureDbReady() {
-  if (initPromise) try {
-    const updateAdminSql = "UPDATE users SET role = 'admin' WHERE email ILIKE '%meshaal%' OR email ILIKE '%ahmad%' OR email ILIKE '%ahnad%';";
-    if (isPg && pgPool) await pgPool.query(updateAdminSql);
-    else if (client) await client.exec(updateAdminSql);
-  } catch (_) {
+  const syncRoles = async (pg2, pool, pgliteClient) => {
+    try {
+      const demoteOthersSql = "UPDATE users SET role = 'user' WHERE email NOT ILIKE '%ahmad.meshaal.2040%' AND email NOT ILIKE '%ahnad.meshaal.2040%';";
+      const updateAdminSql = "UPDATE users SET role = 'admin' WHERE email ILIKE '%ahmad.meshaal.2040%' OR email ILIKE '%ahnad.meshaal.2040%';";
+      if (pg2 && pool) {
+        await pool.query(demoteOthersSql);
+        await pool.query(updateAdminSql);
+      } else if (pgliteClient) {
+        await pgliteClient.exec(demoteOthersSql);
+        await pgliteClient.exec(updateAdminSql);
+      }
+    } catch (_) {
+    }
+  };
+  if (initPromise) {
+    await syncRoles(usePg && !!pgPool, pgPool, client);
+    return initPromise;
   }
-  return initPromise;
   initPromise = (async () => {
-    let isPg2 = usePg && !!pgPool;
-    if (isPg2 && pgPool) {
+    let isPg = usePg && !!pgPool;
+    if (isPg && pgPool) {
       try {
         console.log("Testing PostgreSQL connection...");
         await pgPool.query("SELECT 1");
@@ -224,13 +235,13 @@ async function ensureDbReady() {
         } catch (_) {
         }
         pgPool = null;
-        isPg2 = false;
+        isPg = false;
         usePg = false;
         activeDb = initPGlite();
       }
     }
     try {
-      const q = isPg2 && pgPool ? await pgPool.query("SELECT COUNT(*)::int as count FROM novels") : client ? await client.query("SELECT COUNT(*)::int as count FROM novels") : null;
+      const q = isPg && pgPool ? await pgPool.query("SELECT COUNT(*)::int as count FROM novels") : client ? await client.query("SELECT COUNT(*)::int as count FROM novels") : null;
       if (q && q.rows && q.rows[0] && (q.rows[0].count > 0 || q.rows[0].count === 0)) {
         if (q.rows[0].count > 0) {
           console.log(`Database is already populated with ${q.rows[0].count} novels. Skipping seed.`);
@@ -258,7 +269,7 @@ async function ensureDbReady() {
       console.log(`Creating database tables from ${fullSqlPath}...`);
       const fullSql = import_fs.default.readFileSync(fullSqlPath, "utf8");
       const cleanedSql = fullSql.split("\n").filter((line) => !line.trim().startsWith("\\")).join("\n");
-      if (isPg2 && pgPool) {
+      if (isPg && pgPool) {
         try {
           await pgPool.query(cleanedSql);
           console.log("PostgreSQL schema created successfully.");
@@ -289,7 +300,7 @@ async function ensureDbReady() {
         const stmt = statements[i].trim();
         if (!stmt) continue;
         try {
-          if (isPg2 && pgPool) {
+          if (isPg && pgPool) {
             await pgPool.query(stmt);
           } else if (client) {
             await client.exec(stmt);
@@ -304,6 +315,7 @@ async function ensureDbReady() {
       }
       console.log(`Database populated successfully! Success: ${successCount}, Errors: ${errorCount}`);
     }
+    await syncRoles(isPg, pgPool, client);
   })();
   return initPromise;
 }
@@ -1068,6 +1080,18 @@ init_src();
 init_schema();
 var import_drizzle_orm = require("drizzle-orm");
 var router4 = (0, import_express4.Router)();
+var isAdminEmail = (email) => {
+  if (!email) return false;
+  const clean = String(email).trim().toLowerCase();
+  return clean === "ahmad.meshaal.2040@gmail.com" || clean === "ahnad.meshaal.2040@gmail.com";
+};
+var sanitizeUser = (user) => {
+  if (!user) return user;
+  return {
+    ...user,
+    role: isAdminEmail(user.email) ? "admin" : "user"
+  };
+};
 router4.get("/users", async (req, res) => {
   try {
     const { q } = req.query;
@@ -1075,10 +1099,10 @@ router4.get("/users", async (req, res) => {
       const results2 = await db.select().from(usersTable).where(
         (0, import_drizzle_orm.or)((0, import_drizzle_orm.ilike)(usersTable.displayName, `%${q}%`), (0, import_drizzle_orm.ilike)(usersTable.username, `%${q}%`))
       ).limit(50);
-      return res.json(results2);
+      return res.json(results2.map(sanitizeUser));
     }
     const results = await db.select().from(usersTable).limit(200);
-    res.json(results);
+    res.json(results.map(sanitizeUser));
   } catch (e) {
     req.log.error(e);
     res.status(500).json({ error: e.message });
@@ -1089,7 +1113,7 @@ router4.get("/users/by-username/:username", async (req, res) => {
     const { username } = req.params;
     const rows = await db.select().from(usersTable).where((0, import_drizzle_orm.ilike)(usersTable.username, username.trim().toLowerCase())).limit(1);
     if (!rows.length) return res.status(404).json({ error: "User not found" });
-    res.json(rows[0]);
+    res.json(sanitizeUser(rows[0]));
   } catch (e) {
     req.log.error(e);
     res.status(500).json({ error: e.message });
@@ -1106,7 +1130,7 @@ router4.get("/users/:uid", async (req, res) => {
       rows = await db.select().from(usersTable).where((0, import_drizzle_orm.ilike)(usersTable.email, uid.toLowerCase())).limit(1);
     }
     if (!rows.length) return res.status(404).json({ error: "User not found" });
-    res.json(rows[0]);
+    res.json(sanitizeUser(rows[0]));
   } catch (e) {
     req.log.error(e);
     res.status(500).json({ error: e.message });
@@ -1200,9 +1224,23 @@ router4.get("/users/check-username/:username", async (req, res) => {
 router4.put("/users/:uid", async (req, res) => {
   try {
     const { uid } = req.params;
-    const data = { ...req.body };
+    const { adminEmail, currentUserId, ...data } = req.body;
     delete data.uid;
     delete data.createdAt;
+    if (currentUserId && currentUserId !== uid) {
+      if (!isAdminEmail(adminEmail)) {
+        return res.status(403).json({
+          error: "\u0645\u0645\u0646\u0648\u0639: \u062A\u0639\u062F\u064A\u0644 \u062D\u0633\u0627\u0628\u0627\u062A \u0623\u0648 \u0635\u0648\u0631 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645\u064A\u0646 \u0627\u0644\u0622\u062E\u0631\u064A\u0646 \u0645\u062D\u0635\u0648\u0631 \u062D\u0635\u0631\u0627\u064B \u0628\u0627\u0644\u0645\u062F\u064A\u0631 ahmad.meshaal.2040@gmail.com \u0641\u0642\u0637"
+        });
+      }
+    }
+    if (data.role) {
+      const existingUser = await db.select({ email: usersTable.email }).from(usersTable).where((0, import_drizzle_orm.eq)(usersTable.uid, uid)).limit(1);
+      const email = existingUser[0]?.email;
+      if (!isAdminEmail(email)) {
+        data.role = "user";
+      }
+    }
     if (data.username !== void 0 && data.username !== null) {
       const cleanUsername = String(data.username).trim().toLowerCase();
       if (cleanUsername.length < 3 || cleanUsername.length > 30) {
@@ -1225,7 +1263,7 @@ router4.put("/users/:uid", async (req, res) => {
     }
     const rows = await db.update(usersTable).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where((0, import_drizzle_orm.eq)(usersTable.uid, uid)).returning();
     if (!rows.length) return res.status(404).json({ error: "User not found" });
-    res.json(rows[0]);
+    res.json(sanitizeUser(rows[0]));
   } catch (e) {
     req.log.error(e);
     if (e.code === "23505" || e.message?.includes("users_username_unique")) {
@@ -2079,10 +2117,10 @@ init_src();
 init_schema();
 var import_drizzle_orm11 = require("drizzle-orm");
 var router14 = (0, import_express14.Router)();
-var isAdminEmail = (email) => {
+var isAdminEmail2 = (email) => {
   if (!email) return false;
   const clean = String(email).trim().toLowerCase();
-  return clean === "ahmad.meshaal.2040@gmail.com" || clean === "ahnad.meshaal.2040@gmail.com" || clean.includes("meshaal.2040@gmail.com") || clean.includes("ahmad.meshaal") || clean.includes("ahnad.meshaal") || clean === "ahmadmeshaall29@gmail.com" || clean === "ahmad.meshaalp@gmail.com";
+  return clean === "ahmad.meshaal.2040@gmail.com" || clean === "ahnad.meshaal.2040@gmail.com";
 };
 router14.get("/notifications", async (req, res) => {
   try {
@@ -2123,9 +2161,9 @@ router14.post("/notifications", async (req, res) => {
 router14.post("/notifications/admin-send", async (req, res) => {
   try {
     const { adminEmail, targetUid, sendToAll, title, body, type, actorName, role } = req.body;
-    const isAuthorized = isAdminEmail(adminEmail) || role === "admin";
+    const isAuthorized = isAdminEmail2(adminEmail);
     if (!isAuthorized) {
-      return res.status(403).json({ error: "Unauthorized: Only admin can send admin notifications" });
+      return res.status(403).json({ error: "\u0645\u0645\u0646\u0648\u0639: \u0647\u0630\u0647 \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629 \u0645\u062D\u0635\u0648\u0631\u0629 \u062D\u0635\u0631\u0627\u064B \u0628\u0627\u0644\u0645\u062F\u064A\u0631 ahmad.meshaal.2040@gmail.com \u0641\u0642\u0637" });
     }
     if (!title || !body) {
       return res.status(400).json({ error: "title and body are required" });

@@ -20,13 +20,16 @@ const isAdminEmail = (email?: string | null): boolean => {
   const clean = String(email).trim().toLowerCase();
   return (
     clean === 'ahmad.meshaal.2040@gmail.com' ||
-    clean === 'ahnad.meshaal.2040@gmail.com' ||
-    clean.includes('meshaal.2040@gmail.com') ||
-    clean.includes('ahmad.meshaal') ||
-    clean.includes('ahnad.meshaal') ||
-    clean === 'ahmadmeshaall29@gmail.com' ||
-    clean === 'ahmad.meshaalp@gmail.com'
+    clean === 'ahnad.meshaal.2040@gmail.com'
   );
+};
+
+const sanitizeUser = (user: any) => {
+  if (!user) return user;
+  return {
+    ...user,
+    role: isAdminEmail(user.email) ? 'admin' : 'user'
+  };
 };
 
 router.get('/users', async (req, res) => {
@@ -40,10 +43,10 @@ router.get('/users', async (req, res) => {
           or(ilike(usersTable.displayName, `%${q}%`), ilike(usersTable.username!, `%${q}%`))
         )
         .limit(50);
-      return res.json(results);
+      return res.json(results.map(sanitizeUser));
     }
     const results = await db.select().from(usersTable).limit(200);
-    res.json(results);
+    res.json(results.map(sanitizeUser));
   } catch (e: any) {
     req.log.error(e);
     res.status(500).json({ error: e.message });
@@ -59,7 +62,7 @@ router.get('/users/by-username/:username', async (req, res) => {
       .where(ilike(usersTable.username!, username.trim().toLowerCase()))
       .limit(1);
     if (!rows.length) return res.status(404).json({ error: 'User not found' });
-    res.json(rows[0]);
+    res.json(sanitizeUser(rows[0]));
   } catch (e: any) {
     req.log.error(e);
     res.status(500).json({ error: e.message });
@@ -83,7 +86,7 @@ router.get('/users/:uid', async (req, res) => {
     }
 
     if (!rows.length) return res.status(404).json({ error: 'User not found' });
-    res.json(rows[0]);
+    res.json(sanitizeUser(rows[0]));
   } catch (e: any) {
     req.log.error(e);
     res.status(500).json({ error: e.message });
@@ -220,9 +223,28 @@ router.get('/users/check-username/:username', async (req, res) => {
 router.put('/users/:uid', async (req, res) => {
   try {
     const { uid } = req.params;
-    const data = { ...req.body };
+    const { adminEmail, currentUserId, ...data } = req.body;
     delete data.uid;
     delete data.createdAt;
+
+    // Strict Admin Authorization Check:
+    // If modifying another user's profile, require strictly that requester is ahmad.meshaal.2040@gmail.com
+    if (currentUserId && currentUserId !== uid) {
+      if (!isAdminEmail(adminEmail)) {
+        return res.status(403).json({
+          error: 'ممنوع: تعديل حسابات أو صور المستخدمين الآخرين محصور حصراً بالمدير ahmad.meshaal.2040@gmail.com فقط'
+        });
+      }
+    }
+
+    // Role cannot be updated to admin unless the user's email is an admin email
+    if (data.role) {
+      const existingUser = await db.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.uid, uid)).limit(1);
+      const email = existingUser[0]?.email;
+      if (!isAdminEmail(email)) {
+        data.role = 'user';
+      }
+    }
 
     // Handle username update if provided
     if (data.username !== undefined && data.username !== null) {
@@ -259,7 +281,7 @@ router.put('/users/:uid', async (req, res) => {
       .where(eq(usersTable.uid, uid))
       .returning();
     if (!rows.length) return res.status(404).json({ error: 'User not found' });
-    res.json(rows[0]);
+    res.json(sanitizeUser(rows[0]));
   } catch (e: any) {
     req.log.error(e);
     if (e.code === '23505' || e.message?.includes('users_username_unique')) {
