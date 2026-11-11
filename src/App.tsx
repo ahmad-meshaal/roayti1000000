@@ -3127,6 +3127,7 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
               }}
               showToast={showToast}
               setView={setView}
+              onOpenProfile={(uid) => { setSelectedProfileUid(uid); setView('profile'); }}
             />
           )}
 
@@ -5437,31 +5438,48 @@ const Editor = ({ novel, chapter, onBack, showToast, setConfirmModal, userProfil
 
 const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin, onOpenProfile, effectiveEmail }: { profile: UserProfile, onUpdateProfile: (data: any) => Promise<void>, showToast: (msg: string, type?: 'success' | 'error') => void, setView: (v: any) => void, isAdmin: boolean, onOpenProfile?: (uid: string) => void, effectiveEmail?: string }) => {
   const { t, i18n } = useTranslation();
-  const [displayName, setDisplayName] = useState(profile.displayName || '');
-  const [username, setUsername] = useState(profile.username || '');
+  const [displayName, setDisplayName] = useState(profile?.displayName || '');
+  const [username, setUsername] = useState(profile?.username || '');
   const [usernameStatus, setUsernameStatus] = useState<{
     checking: boolean;
     available?: boolean;
     message?: string;
   }>({ checking: false });
-  const [photoURL, setPhotoURL] = useState(profile.photoURL || '');
-  const [bannerURL, setBannerURL] = useState((profile as any).bannerURL || '');
-  const [bio, setBio] = useState(profile.bio || '');
-  const [teraboxLink, setTeraboxLink] = useState(profile.teraboxLink || '');
-  const [links, setLinks] = useState<ExternalLink[]>(profile.links || []);
-  const [fontFamily, setFontFamily] = useState(profile.fontFamily || 'var(--font-serif)');
+  const [photoURL, setPhotoURL] = useState(profile?.photoURL || '');
+  const [bannerURL, setBannerURL] = useState((profile as any)?.bannerURL || '');
+  const [bio, setBio] = useState(profile?.bio || '');
+  const [teraboxLink, setTeraboxLink] = useState(profile?.teraboxLink || '');
+  const [links, setLinks] = useState<ExternalLink[]>(profile?.links || []);
+  const [fontFamily, setFontFamily] = useState(profile?.fontFamily || 'var(--font-serif)');
   const [customAiKey, setCustomAiKey] = useState(() => localStorage.getItem('custom_gemini_api_key') || '');
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Admin Control Center States (properly at top level)
+  const [adminNotifyMode, setAdminNotifyMode] = useState<'broadcast' | 'direct'>('direct');
+  const [adminNotifyTitle, setAdminNotifyTitle] = useState('رسالة من إدارة منصة روايتي');
+  const [adminNotifyBody, setAdminNotifyBody] = useState('');
+  const [adminNotifySending, setAdminNotifySending] = useState(false);
+  const [adminTargetUser, setAdminTargetUser] = useState<any>(null);
+
+  const [adminUserQuery, setAdminUserQuery] = useState('');
+  const [adminSearchResults, setAdminSearchResults] = useState<any[]>([]);
+  const [adminSearching, setAdminSearching] = useState(false);
+
+  // Photo management state for admin
+  const [adminPhotoTargetUid, setAdminPhotoTargetUid] = useState<string | null>(null);
+  const [adminNewPhotoUrl, setAdminNewPhotoUrl] = useState('');
+  const [adminPhotoUploading, setAdminPhotoUploading] = useState(false);
+  const adminFileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
-    const trimmed = username.trim().toLowerCase();
+    const trimmed = (username || '').trim().toLowerCase();
     if (!trimmed) {
       setUsernameStatus({ checking: false, available: undefined, message: '' });
       return;
     }
 
-    if (trimmed === (profile.username || '').toLowerCase()) {
+    if (trimmed === (profile?.username || '').toLowerCase()) {
       setUsernameStatus({ checking: false, available: true, message: 'اسم المستخدم الحالي' });
       return;
     }
@@ -5479,7 +5497,7 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin, o
     setUsernameStatus({ checking: true });
     const timer = setTimeout(async () => {
       try {
-        const res = await api.checkUsername(trimmed, profile.uid);
+        const res = await api.checkUsername(trimmed, profile?.uid);
         setUsernameStatus({ checking: false, available: res.available, message: res.message });
       } catch {
         setUsernameStatus({ checking: false, available: undefined, message: '' });
@@ -5487,11 +5505,11 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin, o
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [username, profile.username, profile.uid]);
+  }, [username, profile?.username, profile?.uid]);
 
   const handleSave = async () => {
-    const cleanUsername = username.trim().toLowerCase();
-    if (cleanUsername && cleanUsername !== (profile.username || '').toLowerCase()) {
+    const cleanUsername = (username || '').trim().toLowerCase();
+    if (cleanUsername && cleanUsername !== (profile?.username || '').toLowerCase()) {
       if (cleanUsername.length < 3 || cleanUsername.length > 30) {
         showToast('اسم المستخدم يجب أن يتكون من 3 إلى 30 حرفاً', 'error');
         return;
@@ -5525,23 +5543,17 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin, o
       setTimeout(() => setSuccess(false), 3000);
     } catch (e: any) {
       console.error("Save error:", e);
-
-  // Admin Control Center States
-  const [adminNotifyMode, setAdminNotifyMode] = useState<'broadcast' | 'direct'>('direct');
-  const [adminNotifyTitle, setAdminNotifyTitle] = useState('رسالة من إدارة منصة روايتي');
-  const [adminNotifyBody, setAdminNotifyBody] = useState('');
-  const [adminNotifySending, setAdminNotifySending] = useState(false);
-  const [adminTargetUser, setAdminTargetUser] = useState<any>(null);
-
-  const [adminUserQuery, setAdminUserQuery] = useState('');
-  const [adminSearchResults, setAdminSearchResults] = useState<any[]>([]);
-  const [adminSearching, setAdminSearching] = useState(false);
-
-  // Photo management state for admin
-  const [adminPhotoTargetUid, setAdminPhotoTargetUid] = useState<string | null>(null);
-  const [adminNewPhotoUrl, setAdminNewPhotoUrl] = useState('');
-  const [adminPhotoUploading, setAdminPhotoUploading] = useState(false);
-  const adminFileInputRef = useRef<HTMLInputElement>(null);
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      let displayError = errorMsg;
+      try {
+        const parsed = JSON.parse(errorMsg);
+        if (parsed.error) displayError = parsed.error;
+      } catch {}
+      showToast(displayError, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleAdminSearchUsers = async (q: string) => {
     setAdminUserQuery(q);
@@ -5598,7 +5610,11 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin, o
     }
     setAdminPhotoUploading(true);
     try {
-      await api.updateUser(targetUid, { photoURL: newPhoto.trim() });
+      await api.updateUser(targetUid, {
+        photoURL: newPhoto.trim(),
+        adminEmail: (effectiveEmail || 'ahmad.meshaal.2040@gmail.com'),
+        currentUserId: profile.uid
+      });
       setAdminSearchResults(prev => prev.map(u => u.uid === targetUid ? { ...u, photoURL: newPhoto.trim() } : u));
       if (adminTargetUser && adminTargetUser.uid === targetUid) {
         setAdminTargetUser((prev: any) => ({ ...prev, photoURL: newPhoto.trim() }));
@@ -5624,16 +5640,6 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin, o
       showToast('فشل رفع الصورة: ' + (err.message || 'خطأ'), 'error');
       setAdminPhotoUploading(false);
     }
-  };
-      const errorMsg = e instanceof Error ? e.message : String(e);
-      let displayError = errorMsg;
-      try {
-        const parsed = JSON.parse(errorMsg);
-        if (parsed.error) displayError = parsed.error;
-      } catch {}
-      showToast(displayError, 'error');
-    }
-    setSaving(false);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
