@@ -43,13 +43,13 @@ router.post("/gemini/generate", async (req, res) => {
     .filter((k, i, arr) => k && k.length > 10 && arr.indexOf(k) === i);
 
   if (availableKeys.length === 0) {
-    res.status(400).json({ 
-      error: "مفتاح الذكاء الاصطناعي (GEMINI_API_KEY) غير مضاف. يرجى إضافته في إعدادات البيئة على Render أو في إعدادات الملف الشخصي." 
+    res.status(400).json({
+      error: "⚠️ لم يتم العثور على مفتاح الذكاء الاصطناعي. يرجى التوجه إلى صفحة «الإعدادات» وإدخال مفتاح Google Gemini الخاص بك لتفعيل كافة ميزات الذكاء الاصطناعي."
     });
     return;
   }
 
-  const candidateModels = [model, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"].filter((m, i, arr) => arr.indexOf(m) === i);
+  const candidateModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro", model].filter((m, i, arr) => m && arr.indexOf(m) === i);
   let lastError: any = null;
 
   for (const activeKey of availableKeys) {
@@ -85,7 +85,19 @@ router.post("/gemini/generate", async (req, res) => {
 
   req.log.error({ err: lastError }, "Google Gemini API error on all keys and models");
   const errMsg = lastError?.message || String(lastError || "Unknown error");
-  return res.status(500).json({ error: `فشل الاتصال بـ Google Gemini: ${errMsg}` });
+  if (errMsg.includes('API_KEY_INVALID') || errMsg.includes('API key not valid') || errMsg.includes('invalid api key')) {
+    return res.status(400).json({
+      error: "⚠️ مفتاح Gemini المدخل غير صالح. يرجى التوجه إلى صفحة «الإعدادات» والتأكد من نسخه ولصقه بشكل صحيح من Google AI Studio."
+    });
+  }
+  if (errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota') || errMsg.includes('429')) {
+    return res.status(429).json({
+      error: "⚠️ تم استهلاك الحصة المجانية لمفتاح Gemini الحالي. يرجى الانتظار قليلاً أو التوجه إلى «الإعدادات» وإدخال مفتاح جديد."
+    });
+  }
+  return res.status(500).json({
+    error: `⚠️ تعذر إتمام الطلب عبر الذكاء الاصطناعي (${errMsg}). يرجى التحقق من مفتاحك في صفحة «الإعدادات».`
+  });
 });
 
 // Dedicated AI Sanitization endpoint

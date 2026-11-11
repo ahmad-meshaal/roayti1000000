@@ -945,11 +945,11 @@ router2.post("/gemini/generate", async (req, res) => {
   const availableKeys = [userApiKey, serverKey].map(cleanKey).filter((k, i, arr) => k && k.length > 10 && arr.indexOf(k) === i);
   if (availableKeys.length === 0) {
     res.status(400).json({
-      error: "\u0645\u0641\u062A\u0627\u062D \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A (GEMINI_API_KEY) \u063A\u064A\u0631 \u0645\u0636\u0627\u0641. \u064A\u0631\u062C\u0649 \u0625\u0636\u0627\u0641\u062A\u0647 \u0641\u064A \u0625\u0639\u062F\u0627\u062F\u0627\u062A \u0627\u0644\u0628\u064A\u0626\u0629 \u0639\u0644\u0649 Render \u0623\u0648 \u0641\u064A \u0625\u0639\u062F\u0627\u062F\u0627\u062A \u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u0634\u062E\u0635\u064A."
+      error: "\u26A0\uFE0F \u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0641\u062A\u0627\u062D \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A. \u064A\u0631\u062C\u0649 \u0627\u0644\u062A\u0648\u062C\u0647 \u0625\u0644\u0649 \u0635\u0641\u062D\u0629 \xAB\u0627\u0644\u0625\u0639\u062F\u0627\u062F\u0627\u062A\xBB \u0648\u0625\u062F\u062E\u0627\u0644 \u0645\u0641\u062A\u0627\u062D Google Gemini \u0627\u0644\u062E\u0627\u0635 \u0628\u0643 \u0644\u062A\u0641\u0639\u064A\u0644 \u0643\u0627\u0641\u0629 \u0645\u064A\u0632\u0627\u062A \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A."
     });
     return;
   }
-  const candidateModels = [model, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"].filter((m, i, arr) => arr.indexOf(m) === i);
+  const candidateModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro", model].filter((m, i, arr) => m && arr.indexOf(m) === i);
   let lastError = null;
   for (const activeKey of availableKeys) {
     for (const currentModel of candidateModels) {
@@ -982,7 +982,19 @@ router2.post("/gemini/generate", async (req, res) => {
   }
   req.log.error({ err: lastError }, "Google Gemini API error on all keys and models");
   const errMsg = lastError?.message || String(lastError || "Unknown error");
-  return res.status(500).json({ error: `\u0641\u0634\u0644 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0640 Google Gemini: ${errMsg}` });
+  if (errMsg.includes("API_KEY_INVALID") || errMsg.includes("API key not valid") || errMsg.includes("invalid api key")) {
+    return res.status(400).json({
+      error: "\u26A0\uFE0F \u0645\u0641\u062A\u0627\u062D Gemini \u0627\u0644\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D. \u064A\u0631\u062C\u0649 \u0627\u0644\u062A\u0648\u062C\u0647 \u0625\u0644\u0649 \u0635\u0641\u062D\u0629 \xAB\u0627\u0644\u0625\u0639\u062F\u0627\u062F\u0627\u062A\xBB \u0648\u0627\u0644\u062A\u0623\u0643\u062F \u0645\u0646 \u0646\u0633\u062E\u0647 \u0648\u0644\u0635\u0642\u0647 \u0628\u0634\u0643\u0644 \u0635\u062D\u064A\u062D \u0645\u0646 Google AI Studio."
+    });
+  }
+  if (errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota") || errMsg.includes("429")) {
+    return res.status(429).json({
+      error: "\u26A0\uFE0F \u062A\u0645 \u0627\u0633\u062A\u0647\u0644\u0627\u0643 \u0627\u0644\u062D\u0635\u0629 \u0627\u0644\u0645\u062C\u0627\u0646\u064A\u0629 \u0644\u0645\u0641\u062A\u0627\u062D Gemini \u0627\u0644\u062D\u0627\u0644\u064A. \u064A\u0631\u062C\u0649 \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631 \u0642\u0644\u064A\u0644\u0627\u064B \u0623\u0648 \u0627\u0644\u062A\u0648\u062C\u0647 \u0625\u0644\u0649 \xAB\u0627\u0644\u0625\u0639\u062F\u0627\u062F\u0627\u062A\xBB \u0648\u0625\u062F\u062E\u0627\u0644 \u0645\u0641\u062A\u0627\u062D \u062C\u062F\u064A\u062F."
+    });
+  }
+  return res.status(500).json({
+    error: `\u26A0\uFE0F \u062A\u0639\u0630\u0631 \u0625\u062A\u0645\u0627\u0645 \u0627\u0644\u0637\u0644\u0628 \u0639\u0628\u0631 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A (${errMsg}). \u064A\u0631\u062C\u0649 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0645\u0641\u062A\u0627\u062D\u0643 \u0641\u064A \u0635\u0641\u062D\u0629 \xAB\u0627\u0644\u0625\u0639\u062F\u0627\u062F\u0627\u062A\xBB.`
+  });
 });
 router2.post("/gemini/sanitize", async (req, res) => {
   try {

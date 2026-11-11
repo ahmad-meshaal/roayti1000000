@@ -2,9 +2,30 @@ import { sanitizeIslamicContent, containsShirkOrProhibited } from '../lib/saniti
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+export const getAiErrorMessage = (error: any): string => {
+  const msg = error?.message || String(error || '');
+  if (
+    !msg ||
+    msg.includes('مفتاح') ||
+    msg.includes('API_KEY') ||
+    msg.includes('API key') ||
+    msg.includes('الإعدادات') ||
+    msg.includes('Failed to fetch') ||
+    msg.includes('NetworkError') ||
+    msg.includes('Status 400') ||
+    msg.includes('Status 401') ||
+    msg.includes('Status 403') ||
+    msg.includes('Status 429') ||
+    msg.includes('Gemini API error')
+  ) {
+    return '⚠️ لاستخدام هذه الميزة، يرجى التوجه إلى صفحة «الإعدادات» وإدخال مفتاح الذكاء الاصطناعي (Google Gemini API Key) الخاص بك وتفعيله.';
+  }
+  return msg;
+};
+
 const generateWithRetry = async (params: any, _provider: 'openai' | 'gemini' = 'gemini', retries = 3, backoff = 15000): Promise<any> => {
   try {
-    const customKey = typeof localStorage !== 'undefined' ? (localStorage.getItem('custom_gemini_api_key') || '') : '';
+    const customKey = typeof localStorage !== 'undefined' ? (localStorage.getItem('custom_gemini_api_key') || '').trim() : '';
     const bodyParams = customKey 
       ? { ...params, config: { ...(params?.config || {}), userApiKey: customKey } } 
       : params;
@@ -21,13 +42,14 @@ const generateWithRetry = async (params: any, _provider: 'openai' | 'gemini' = '
       data = JSON.parse(text);
     } catch {
       if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
+        throw new Error('⚠️ تعذر الاتصال بخدمة الذكاء الاصطناعي. يرجى التوجه إلى صفحة «الإعدادات» والتأكد من إدخال مفتاح Google Gemini الخاص بك.');
       }
       throw new Error(`Invalid JSON response: ${text.slice(0, 100)}`);
     }
 
     if (!response.ok || data?.error) {
-      throw new Error(data?.error || `Gemini API error (Status ${response.status})`);
+      const err = data?.error || `Gemini API error (Status ${response.status})`;
+      throw new Error(err);
     }
 
     if (data && typeof data.text === 'string') {
@@ -37,7 +59,7 @@ const generateWithRetry = async (params: any, _provider: 'openai' | 'gemini' = '
     return data;
   } catch (error: any) {
     console.error("Gemini API call failed:", error?.message);
-    throw error;
+    throw new Error(getAiErrorMessage(error));
   }
 };
 

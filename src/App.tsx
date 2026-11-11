@@ -213,7 +213,8 @@ import {
   suggestChapterTitle, 
   chatAboutNovel,
   editChapterContent,
-  continueChapterContent
+  continueChapterContent,
+  getAiErrorMessage
 } from './services/gemini';
 import { uploadBase64Image, uploadFile } from './services/storage';
 import { resizeAndCompressImage } from './utils/image';
@@ -2999,6 +3000,7 @@ function MainApp({ clerkUser, isClerkLoaded, clerkSignOut }: { clerkUser?: any, 
               isAdmin={isAdmin}
               onDeleteComment={deleteComment}
               showToast={showToast}
+              setView={setView}
             />
           )}
 
@@ -3499,7 +3501,7 @@ const NovelDetail = ({ novel, isAuthor, isAdmin, profile, onEditChapter, onManag
       }
     } catch (e) {
       console.error(e);
-      showToast(t('error_generating_summary', 'حدث خطأ أثناء توليد الملخص.'), 'error');
+      showToast(getAiErrorMessage(e), 'error');
     }
     setGeneratingSummary(false);
   };
@@ -3596,7 +3598,7 @@ const NovelDetail = ({ novel, isAuthor, isAdmin, profile, onEditChapter, onManag
       setAiPlot(plot || '');
     } catch (e) { 
       console.error(e);
-      showToast(t('error_generating_plot', 'حدث خطأ أثناء توليد الحبكة.'), 'error');
+      showToast(getAiErrorMessage(e), 'error');
     }
     setGenerating(false);
   };
@@ -4331,7 +4333,17 @@ const NovelDetail = ({ novel, isAuthor, isAdmin, profile, onEditChapter, onManag
 
 // --- Novel Chat Component ---
 
-const NovelChat = ({ novel, chapters }: { novel: Novel, chapters: Chapter[] }) => {
+const NovelChat = ({ 
+  novel, 
+  chapters,
+  setView,
+  showToast
+}: { 
+  novel: Novel, 
+  chapters: Chapter[],
+  setView?: (v: any) => void,
+  showToast?: (msg: string, type?: 'success' | 'error') => void
+}) => {
   const { t, i18n } = useTranslation();
   const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string }[]>([]);
   const [input, setInput] = useState('');
@@ -4352,6 +4364,22 @@ const NovelChat = ({ novel, chapters }: { novel: Novel, chapters: Chapter[] }) =
     setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
     setLoading(true);
 
+    const customKey = typeof localStorage !== 'undefined' ? (localStorage.getItem('custom_gemini_api_key') || '').trim() : '';
+    if (!customKey || customKey.length < 10) {
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'model',
+          text: '⚠️ لاستخدام الدردشة والناقد الأدبي بالذكاء الاصطناعي، يرجى التوجه إلى صفحة **الإعدادات** في القائمة العلوية وإدخال مفتاح الذكاء الاصطناعي الخاص بك (Google Gemini API Key) ثم الضغط على **حفظ وتفعيل**.'
+        }
+      ]);
+      if (showToast) {
+        showToast('يرجى إدخال مفتاح الذكاء الاصطناعي في الإعدادات لتفعيل الدردشة', 'error');
+      }
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await chatAboutNovel(
         novel.title,
@@ -4364,22 +4392,46 @@ const NovelChat = ({ novel, chapters }: { novel: Novel, chapters: Chapter[] }) =
       if (response) {
         setMessages(prev => [...prev, { role: 'model', text: response }]);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      const friendly = getAiErrorMessage(e);
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'model',
+          text: friendly
+        }
+      ]);
+      if (showToast) {
+        showToast(friendly, 'error');
+      }
     }
     setLoading(false);
   };
 
   return (
     <div className="mt-12 border-t border-black/10 pt-12">
-      <div className="mb-6 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-          <MessageSquare size={20} />
+      <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+            <MessageSquare size={20} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold">{t('chat_with_ai')}</h3>
+            <p className="text-xs text-black/40">{t('ai_critic')}</p>
+          </div>
         </div>
-        <div>
-          <h3 className="text-lg font-bold">{t('chat_with_ai')}</h3>
-          <p className="text-xs text-black/40">{t('ai_critic')}</p>
-        </div>
+
+        {setView && (
+          <button
+            type="button"
+            onClick={() => setView('settings')}
+            className="text-xs text-gray-600 hover:text-black flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-black/10 hover:border-black/30 bg-white transition-all cursor-pointer"
+          >
+            <Settings size={13} />
+            <span>إعدادات مفتاح الذكاء الاصطناعي</span>
+          </button>
+        )}
       </div>
 
       <div className="monochrome-card flex h-[500px] flex-col overflow-hidden p-0">
@@ -4393,6 +4445,16 @@ const NovelChat = ({ novel, chapters }: { novel: Novel, chapters: Chapter[] }) =
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${msg.role === 'user' ? 'bg-black text-white' : 'bg-black/5'}`}>
                 <Markdown>{msg.text}</Markdown>
+                {msg.role === 'model' && msg.text.includes('الإعدادات') && setView && (
+                  <button
+                    type="button"
+                    onClick={() => setView('settings')}
+                    className="mt-2.5 text-xs bg-black text-white hover:bg-neutral-800 font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                  >
+                    <Settings size={14} />
+                    <span>الذهاب إلى الإعدادات لإدخال المفتاح</span>
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -4409,6 +4471,25 @@ const NovelChat = ({ novel, chapters }: { novel: Novel, chapters: Chapter[] }) =
             </div>
           )}
         </div>
+
+        {typeof localStorage !== 'undefined' && !localStorage.getItem('custom_gemini_api_key') && (
+          <div className="bg-amber-50 border-t border-amber-200 px-4 py-2 flex items-center justify-between gap-2 text-xs text-amber-900">
+            <span className="flex items-center gap-1.5 font-medium">
+              <span>⚠️</span>
+              <span>لتفعيل الدردشة وميزات الذكاء الاصطناعي، يرجى إدخال مفتاحك في الإعدادات.</span>
+            </span>
+            {setView && (
+              <button
+                type="button"
+                onClick={() => setView('settings')}
+                className="font-bold underline text-amber-950 hover:text-black shrink-0 cursor-pointer"
+              >
+                الذهاب للإعدادات الآن ←
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="border-t border-black/10 p-4">
           <div className="flex gap-2">
             <input 
@@ -4421,7 +4502,7 @@ const NovelChat = ({ novel, chapters }: { novel: Novel, chapters: Chapter[] }) =
             <button 
               onClick={handleSend}
               disabled={loading || !input.trim()}
-              className="monochrome-button px-6"
+              className="monochrome-button px-6 cursor-pointer"
             >
               <Send size={18} />
             </button>
@@ -4449,7 +4530,8 @@ const Reader = ({
   currentUserId,
   isAdmin,
   onDeleteComment,
-  showToast
+  showToast,
+  setView
 }: { 
   novel: Novel, 
   onBack: () => void, 
@@ -4467,7 +4549,8 @@ const Reader = ({
   currentUserId: string | null,
   isAdmin: boolean,
   onDeleteComment: (novelId: string, chapterId: string, commentId: string) => void,
-  showToast: (msg: string, type?: 'success' | 'error') => void
+  showToast: (msg: string, type?: 'success' | 'error') => void,
+  setView?: (v: any) => void
 }) => {
   const { t, i18n } = useTranslation();
   const [chapters, setChapters] = useState<Chapter[]>([]);
@@ -4834,7 +4917,7 @@ const Reader = ({
                 onDeleteComment={(commentId) => onDeleteComment(novel.id, activeChapter.id, commentId)}
               />
 
-              <NovelChat novel={novel} chapters={chapters} />
+              <NovelChat novel={novel} chapters={chapters} setView={setView} showToast={showToast} />
             </div>
           ) : (
             <div className="py-20 text-center text-black/30">
@@ -5024,8 +5107,7 @@ const Editor = ({ novel, chapter, onBack, showToast, setConfirmModal, userProfil
       }
     } catch (e: any) {
       console.error(e);
-      const errorMsg = e.message || t('error_generating_content');
-      showToast(errorMsg, 'error');
+      showToast(getAiErrorMessage(e), 'error');
     }
     setGenerating(false);
   };
@@ -5056,7 +5138,7 @@ const Editor = ({ novel, chapter, onBack, showToast, setConfirmModal, userProfil
       }
     } catch (e: any) {
       console.error(e);
-      showToast(e.message || t('error_continuing', 'حدث خطأ أثناء إكمال الفصل.'), 'error');
+      showToast(getAiErrorMessage(e), 'error');
     }
     setContinuing(false);
   };
@@ -5077,8 +5159,7 @@ const Editor = ({ novel, chapter, onBack, showToast, setConfirmModal, userProfil
       }
     } catch (e: any) {
       console.error(e);
-      const errorMsg = e.message || t('error_generating_description', 'حدث خطأ أثناء توليد وصف الفصل.');
-      showToast(errorMsg, 'error');
+      showToast(getAiErrorMessage(e), 'error');
     }
     setGeneratingDescription(false);
   };
@@ -5102,7 +5183,7 @@ const Editor = ({ novel, chapter, onBack, showToast, setConfirmModal, userProfil
       }
     } catch (e) {
       console.error(e);
-      showToast(t('error_suggesting_title', 'حدث خطأ أثناء اقتراح العنوان.'), 'error');
+      showToast(getAiErrorMessage(e), 'error');
     }
     setSuggestingTitle(false);
   };
@@ -5176,7 +5257,7 @@ const Editor = ({ novel, chapter, onBack, showToast, setConfirmModal, userProfil
       }
     } catch (e) {
       console.error(e);
-      showToast(t('error_editing_content', 'حدث خطأ أثناء تعديل المحتوى.'), 'error');
+      showToast(getAiErrorMessage(e), 'error');
     }
     setIsEditingWithAi(false);
   };
@@ -5526,6 +5607,12 @@ const SettingsView = ({ profile, onUpdateProfile, showToast, setView, isAdmin, o
 
     setSaving(true);
     try {
+      if (typeof localStorage !== 'undefined') {
+        const trimmedKey = (customAiKey || '').trim();
+        if (trimmedKey) {
+          localStorage.setItem('custom_gemini_api_key', trimmedKey);
+        }
+      }
       await onUpdateProfile({ 
         uid: profile.uid,
         email: profile.email,
