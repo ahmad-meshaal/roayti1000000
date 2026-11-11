@@ -738,6 +738,41 @@ const ProfileView = ({
     }
   };
 
+  // Admin Library & Drafts Inspector States
+  const [showAdminLibraryModal, setShowAdminLibraryModal] = useState(false);
+  const [adminInspectionTab, setAdminInspectionTab] = useState<'novels' | 'library'>('novels');
+  const [adminAuthorNovels, setAdminAuthorNovels] = useState<Novel[]>([]);
+  const [adminLibraryNovels, setAdminLibraryNovels] = useState<Novel[]>([]);
+  const [adminInspectLoading, setAdminInspectLoading] = useState(false);
+  const [adminNovelFilter, setAdminNovelFilter] = useState<'all' | 'draft' | 'published'>('all');
+
+  const handleOpenAdminLibraryModal = async () => {
+    setShowAdminLibraryModal(true);
+    setAdminInspectLoading(true);
+    try {
+      // 1. Fetch all novels by this author including drafts
+      const allNovels = await api.getNovels({ authorUid: uid });
+      setAdminAuthorNovels(Array.isArray(allNovels) ? allNovels : []);
+
+      // 2. Fetch the user's library
+      const libRows = await api.getLibrary(uid);
+      if (Array.isArray(libRows) && libRows.length > 0) {
+        const novelIds = libRows.map((r: any) => r.novelId).filter(Boolean);
+        const fetched = await Promise.all(
+          novelIds.map((nId: string) => api.getNovel(nId).catch(() => null))
+        );
+        setAdminLibraryNovels(fetched.filter(Boolean) as Novel[]);
+      } else {
+        setAdminLibraryNovels([]);
+      }
+    } catch (e: any) {
+      console.error('Error fetching admin inspect data:', e);
+      showToast('حدث خطأ أثناء تحميل بيانات المكتبة والمسودات', 'error');
+    } finally {
+      setAdminInspectLoading(false);
+    }
+  };
+
   // Admin Banner States & Handlers
   const [showAdminBannerModal, setShowAdminBannerModal] = useState(false);
   const [adminBannerUrl, setAdminBannerUrl] = useState('');
@@ -909,14 +944,24 @@ const ProfileView = ({
           <ArrowLeft size={16} /> {t('back')}
         </button>
           {isAdmin && (
-            <button 
-              type="button"
-              onClick={() => setShowAdminMsgModal(true)}
-              className="monochrome-button-outline !text-amber-800 !border-amber-300 bg-amber-50 hover:bg-amber-100 p-2 rounded-full active:scale-90 transition-all flex items-center justify-center shadow-xs cursor-pointer"
-              title="إرسال إشعار للحساب (صلاحية المدير)"
-            >
-              <Send size={16} />
-            </button>
+            <>
+              <button 
+                type="button"
+                onClick={handleOpenAdminLibraryModal}
+                className="monochrome-button-outline !text-emerald-800 !border-emerald-300 bg-emerald-50 hover:bg-emerald-100 p-2 rounded-full active:scale-90 transition-all flex items-center justify-center shadow-xs cursor-pointer"
+                title="فحص مكتبة وروايات ومسودات هذا المستخدم (صلاحية المدير)"
+              >
+                <BookOpen size={16} />
+              </button>
+              <button 
+                type="button"
+                onClick={() => setShowAdminMsgModal(true)}
+                className="monochrome-button-outline !text-amber-800 !border-amber-300 bg-amber-50 hover:bg-amber-100 p-2 rounded-full active:scale-90 transition-all flex items-center justify-center shadow-xs cursor-pointer"
+                title="إرسال إشعار للحساب (صلاحية المدير)"
+              >
+                <Send size={16} />
+              </button>
+            </>
           )}
         <div className="flex gap-2">
           <button 
@@ -1017,6 +1062,15 @@ const ProfileView = ({
                 >
                   <Send size={14} />
                   <span>إرسال إشعار للحساب (المدير)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenAdminLibraryModal}
+                  className="text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                  title="الدخول إلى مكتبة هذا الحساب واستعراض جميع رواياته ومسوداته"
+                >
+                  <BookOpen size={14} />
+                  <span>مكتبة وروايات الحساب (شامل المسودات)</span>
                 </button>
               </div>
               <div className="flex gap-1 flex-wrap justify-center">
@@ -1143,8 +1197,18 @@ const ProfileView = ({
         </div>
       )}
 
-      <div className="mb-8 border-b border-black/5 pb-4">
+      <div className="mb-8 border-b border-black/5 pb-4 flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-lg sm:text-xl font-display font-bold tracking-tight">{t('published_novels')}</h3>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={handleOpenAdminLibraryModal}
+            className="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all active:scale-95"
+          >
+            <BookOpen size={14} />
+            <span>فحص مكتبة ومسودات الكاتب (المدير)</span>
+          </button>
+        )}
       </div>
 
       <div className="grid gap-8 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
@@ -1174,6 +1238,213 @@ const ProfileView = ({
           </div>
         )}
       </div>
+      {/* Admin Library & Drafts Inspection Modal */}
+      {showAdminLibraryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-3 sm:p-6 animate-in fade-in duration-150" onClick={() => setShowAdminLibraryModal(false)}>
+          <div className="bg-white rounded-2xl max-w-4xl w-full p-5 sm:p-7 shadow-2xl border border-black/10 text-start space-y-5 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-black/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                  <BookOpen size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base sm:text-lg text-gray-900 flex items-center gap-2">
+                    <span>مكتبة وروايات المستخدم</span>
+                    <span className="text-xs font-mono bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-full font-bold">
+                      @{profile.displayName || profile.username || 'user'}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    صلاحية المدير العام: فحص جميع الروايات المسودة والمكتبة الخاصة بهذا الحساب
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowAdminLibraryModal(false)}
+                className="p-2 rounded-full hover:bg-black/5 text-gray-500 hover:text-black transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="flex border-b border-black/10 gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setAdminInspectionTab('novels')}
+                className={`pb-2.5 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                  adminInspectionTab === 'novels'
+                    ? 'border-emerald-600 text-emerald-700'
+                    : 'border-transparent text-gray-400 hover:text-gray-700'
+                }`}
+              >
+                <span>روايات الكاتب (المنشورة والمسودات)</span>
+                <span className="bg-gray-100 text-gray-700 text-[10px] px-1.5 py-0.5 rounded-full font-mono">
+                  {adminAuthorNovels.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminInspectionTab('library')}
+                className={`pb-2.5 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                  adminInspectionTab === 'library'
+                    ? 'border-emerald-600 text-emerald-700'
+                    : 'border-transparent text-gray-400 hover:text-gray-700'
+                }`}
+              >
+                <span>مكتبة المستخدم (الروايات المحفوظة)</span>
+                <span className="bg-gray-100 text-gray-700 text-[10px] px-1.5 py-0.5 rounded-full font-mono">
+                  {adminLibraryNovels.length}
+                </span>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="overflow-y-auto flex-grow pr-1">
+              {adminInspectLoading ? (
+                <div className="py-20 flex flex-col items-center justify-center gap-3 text-gray-400">
+                  <RefreshCw size={28} className="animate-spin text-emerald-600" />
+                  <span className="text-xs font-bold">جاري جلب بيانات المكتبة والروايات...</span>
+                </div>
+              ) : adminInspectionTab === 'novels' ? (
+                <div className="space-y-4">
+                  {/* Filters for novels */}
+                  <div className="flex gap-2 flex-wrap items-center justify-between pb-2">
+                    <div className="flex gap-1.5">
+                      {(['all', 'draft', 'published'] as const).map(f => {
+                        const count = f === 'all' 
+                          ? adminAuthorNovels.length 
+                          : adminAuthorNovels.filter(n => n.status === f).length;
+                        const labels = { all: 'الكل', draft: 'المسودات فقط 📝', published: 'المنشورة فقط 🌐' };
+                        return (
+                          <button
+                            key={f}
+                            type="button"
+                            onClick={() => setAdminNovelFilter(f)}
+                            className={`text-[11px] px-2.5 py-1 rounded-lg font-bold border transition-all cursor-pointer ${
+                              adminNovelFilter === f
+                                ? 'bg-black text-white border-black'
+                                : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                            }`}
+                          >
+                            {labels[f]} ({count})
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {adminAuthorNovels.filter(n => adminNovelFilter === 'all' || n.status === adminNovelFilter).length === 0 ? (
+                    <div className="py-16 text-center text-gray-400">
+                      <BookOpen size={36} className="mx-auto mb-2 opacity-20" />
+                      <p className="text-xs">لا توجد روايات مسجلة لهذا الحساب تحت هذا التصنيف.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      {adminAuthorNovels
+                        .filter(n => adminNovelFilter === 'all' || n.status === adminNovelFilter)
+                        .map(novel => {
+                          const isDraft = novel.status === 'draft';
+                          return (
+                            <div
+                              key={novel.id}
+                              onClick={() => {
+                                setShowAdminLibraryModal(false);
+                                onOpenNovel(novel);
+                              }}
+                              className={`p-3 rounded-xl border transition-all cursor-pointer hover:shadow-md flex gap-3 ${
+                                isDraft ? 'bg-amber-50/50 border-amber-300/80 hover:bg-amber-50' : 'bg-white border-gray-200 hover:border-black'
+                              }`}
+                            >
+                              <div className="w-14 h-20 bg-gray-100 rounded-lg overflow-hidden border border-black/10 shrink-0">
+                                {novel.coverImage ? (
+                                  <img src={novel.coverImage} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center font-bold text-xs text-gray-400">📖</div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0 flex flex-col justify-between">
+                                <div>
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                                      isDraft 
+                                        ? 'bg-amber-200 text-amber-900 border border-amber-300' 
+                                        : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                    }`}>
+                                      {isDraft ? '📝 مسودة (خاصة)' : '🌐 منشورة'}
+                                    </span>
+                                    <span className="text-[9px] text-gray-400 uppercase font-mono">{t(novel.genre)}</span>
+                                  </div>
+                                  <h4 className="text-xs font-bold text-gray-900 truncate" title={novel.title}>
+                                    {novel.title}
+                                  </h4>
+                                  <p className="text-[10px] text-gray-500 line-clamp-2 mt-0.5">
+                                    {novel.summary || 'بدون ملخص'}
+                                  </p>
+                                </div>
+                                <div className="text-[10px] text-emerald-800 font-bold flex items-center gap-1 mt-1">
+                                  <span>فتح الرواية ومطالعتها ←</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {adminLibraryNovels.length === 0 ? (
+                    <div className="py-16 text-center text-gray-400">
+                      <BookOpen size={36} className="mx-auto mb-2 opacity-20" />
+                      <p className="text-xs">مكتبة هذا المستخدم فارغة حالياً.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      {adminLibraryNovels.map(novel => (
+                        <div
+                          key={novel.id}
+                          onClick={() => {
+                            setShowAdminLibraryModal(false);
+                            onOpenNovel(novel);
+                          }}
+                          className="p-3 bg-white rounded-xl border border-gray-200 hover:border-black transition-all cursor-pointer hover:shadow-md flex gap-3"
+                        >
+                          <div className="w-14 h-20 bg-gray-100 rounded-lg overflow-hidden border border-black/10 shrink-0">
+                            {novel.coverImage ? (
+                              <img src={novel.coverImage} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center font-bold text-xs text-gray-400">📖</div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0 flex flex-col justify-between">
+                            <div>
+                              <span className="text-[9px] text-gray-400 uppercase font-mono block mb-1">
+                                {t(novel.genre)}
+                              </span>
+                              <h4 className="text-xs font-bold text-gray-900 truncate" title={novel.title}>
+                                {novel.title}
+                              </h4>
+                              <p className="text-[10px] text-gray-500 line-clamp-2 mt-0.5">
+                                {novel.summary || 'بدون ملخص'}
+                              </p>
+                            </div>
+                            <div className="text-[10px] text-emerald-800 font-bold flex items-center gap-1 mt-1">
+                              <span>قراءة الرواية من مكتبته ←</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Admin Message Modal */}
       {showAdminMsgModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
